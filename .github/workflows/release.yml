@@ -77,8 +77,6 @@ jobs:
           SHA256="$(cut -d ' ' -f 1 "${ASSET_NAME}.sha256")"
 
           cat > release-notes.md <<EOF
-          ## 阿里云 DNS 管理器 ${GITHUB_REF_NAME}
-
           此发行包由 GitHub Actions 自动构建。
 
           ### 升级提醒
@@ -110,6 +108,6 @@ jobs:
             gh release upload "${GITHUB_REF_NAME}" "${ASSET_NAME}" "${ASSET_NAME}.sha256" --clobber
           else
             gh release create "${GITHUB_REF_NAME}" "${ASSET_NAME}" "${ASSET_NAME}.sha256" \
-              --title "阿里云 DNS 管理器 ${GITHUB_REF_NAME}" \
+              --title "Aliyun DNS Manager ${GITHUB_REF_NAME}" \
               --notes-file release-notes.md
           fi
