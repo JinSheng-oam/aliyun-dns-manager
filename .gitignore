@@ -38,6 +38,8 @@ yarn-error.log*
 /data/
 /release/
 release.zip
+aliyun-dns-manager-*.zip
+release-start-test.*.log
 lint_output.txt
 temp_import.txt
 

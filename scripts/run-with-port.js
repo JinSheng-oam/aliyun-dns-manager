@@ -40,7 +40,6 @@ if (isStandalone && command === 'start') {
     console.log(`🚀 生产环境启动 (Standalone)... 监听: ${host}:${port}`);
     spawn('node', ['server.js'], {
         stdio: 'inherit',
-        shell: true,
         env: { 
             ...process.env, 
             PORT: port, 
@@ -66,7 +65,6 @@ if (isStandalone && command === 'start') {
     // 强制使用 npx 来运行 next 确保能找到命令，同时处理 shell 注入风险
     const nextProcess = spawn(nextPackageCmd, args, {
         stdio: 'inherit',
-        shell: true,
         env: { ...process.env, PORT: port, HOSTNAME: host }
     });
 

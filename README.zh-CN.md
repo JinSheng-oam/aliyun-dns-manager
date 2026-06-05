@@ -1,6 +1,6 @@
 # 阿里云 DNS 管理器
 
-English | [简体中文](./README.zh-CN.md)
+[English](./README.md) | 简体中文
 
 一个适合自托管使用的阿里云 DNS 在线管理后台，支持本地保存凭据、多账号切换，以及通过浏览器完成常见 DNS 管理操作。
 
@@ -34,6 +34,21 @@ English | [简体中文](./README.zh-CN.md)
 
 更推荐把它作为内部管理工具使用，而不是直接裸露在公网。
 
+## 下载
+
+你可以下载源码运行，也可以直接下载已经打包好的发行版。
+
+- 最新发行版：[GitHub Releases](https://github.com/JinSheng-oam/aliyun-dns-manager/releases/latest)
+- 源码仓库：[JinSheng-oam/aliyun-dns-manager](https://github.com/JinSheng-oam/aliyun-dns-manager)
+
+下载发行版压缩包后，解压，复制 `.env.example` 为 `.env`，按需修改配置，然后运行：
+
+```bash
+node scripts/run-with-port.js start
+```
+
+在 Windows 上，配置好 `.env` 后也可以双击 `start.bat` 启动。
+
 ## 快速开始
 
 ### 环境要求
@@ -44,7 +59,7 @@ English | [简体中文](./README.zh-CN.md)
 ### 安装
 
 ```bash
-git clone https://github.com/your-name/aliyun-dns-manager.git
+git clone https://github.com/JinSheng-oam/aliyun-dns-manager.git
 cd aliyun-dns-manager
 npm install
 copy .env.example .env

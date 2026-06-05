@@ -100,7 +100,7 @@ node scripts/run-with-port.js start`;
 
         console.log('\n✅ 打包完成！');
         console.log('📍 发布包路径: ' + releaseDir);
-        console.log('💡 运行建议: 将 release 目录上传到服务器，执行 `node server.js` 即可启动。');
+        console.log('💡 运行建议: 将 release 目录上传到服务器，配置 .env 后执行 `node scripts/run-with-port.js start` 即可启动。');
 
     } catch (error) {
         console.error('\n❌ 打包失败:');

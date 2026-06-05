@@ -34,6 +34,21 @@ This tool is suitable for:
 
 It is best used as an internal admin tool rather than a public-facing internet service.
 
+## Download
+
+You can either download the source code or use the ready-made release package.
+
+- Latest release: [GitHub Releases](https://github.com/JinSheng-oam/aliyun-dns-manager/releases/latest)
+- Source code: [JinSheng-oam/aliyun-dns-manager](https://github.com/JinSheng-oam/aliyun-dns-manager)
+
+After downloading the release package, unzip it, copy `.env.example` to `.env`, update the required settings, and run:
+
+```bash
+node scripts/run-with-port.js start
+```
+
+On Windows, you can also double-click `start.bat` after configuring `.env`.
+
 ## Quick Start
 
 ### Requirements
@@ -44,7 +59,7 @@ It is best used as an internal admin tool rather than a public-facing internet s
 ### Install
 
 ```bash
-git clone https://github.com/your-name/aliyun-dns-manager.git
+git clone https://github.com/JinSheng-oam/aliyun-dns-manager.git
 cd aliyun-dns-manager
 npm install
 copy .env.example .env

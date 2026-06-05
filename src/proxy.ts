@@ -2,7 +2,7 @@ import { NextResponse } from 'next/server';
 import type { NextRequest } from 'next/server';
 import { getAuthCookieName, isAdminAuthConfigured, verifyAdminSessionToken } from '@/lib/auth';
 
-export async function middleware(request: NextRequest) {
+export async function proxy(request: NextRequest) {
     // Simple path exclusion (like public assets or the login page itself)
     if (
         request.nextUrl.pathname.startsWith('/_next') ||
