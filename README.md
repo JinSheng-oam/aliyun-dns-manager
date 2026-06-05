@@ -1,62 +1,62 @@
-# Aliyun DNS Manager
+# 阿里云 DNS 管理器
 
-[简体中文](./README.zh-CN.md) | English
+[English](./README.en.md) | 简体中文
 
-A self-hosted web console for managing Alibaba Cloud DNS records with local credential storage, multi-account support, and a simple browser-based workflow.
+一个适合自托管使用的阿里云 DNS 在线管理后台，支持本地保存凭据、多账号切换，以及通过浏览器完成常见 DNS 管理操作。
 
-![License](https://img.shields.io/badge/license-MIT-blue.svg)
+![授权](https://img.shields.io/badge/license-MIT-blue.svg)
 ![Next.js](https://img.shields.io/badge/Next.js-16-black.svg)
 ![React](https://img.shields.io/badge/React-19-149eca.svg)
 ![TailwindCSS](https://img.shields.io/badge/TailwindCSS-4-38B2AC.svg)
 
-## What It Does
+## 功能说明
 
-Aliyun DNS Manager helps you manage Alibaba Cloud DNS in a cleaner way than working directly in the cloud console.
+阿里云 DNS 管理器适合用来替代繁琐的云控制台操作，让日常解析维护更直观。
 
-You can use it to:
+你可以用它来：
 
-- store and manage multiple Aliyun AccessKeys locally
-- browse all domains under a selected account
-- view, search, filter, and sort DNS records
-- add, edit, enable, disable, and delete DNS records
-- batch delete or batch change record status
-- import and export DNS records as CSV
-- protect the admin panel with password login
+- 在本地保存并管理多个阿里云 AccessKey
+- 查看某个账号下的全部域名
+- 查询、搜索、筛选、排序 DNS 记录
+- 新增、编辑、启用、暂停、删除 DNS 记录
+- 批量删除或批量修改记录状态
+- 通过 CSV 导入和导出解析记录
+- 使用管理员密码保护后台入口
 
-## Who It Is For
+## 适用场景
 
-This tool is suitable for:
+这个工具适合：
 
-- individual operators
-- small teams
-- internal operations environments
-- self-hosted server management
+- 个人运维
+- 小团队内部使用
+- 内网运维环境
+- 自托管服务器管理
 
-It is best used as an internal admin tool rather than a public-facing internet service.
+更推荐把它作为内部管理工具使用，而不是直接裸露在公网。
 
-## Download
+## 下载
 
-You can either download the source code or use the ready-made release package.
+你可以下载源码运行，也可以直接下载已经打包好的发行版。
 
-- Latest release: [GitHub Releases](https://github.com/JinSheng-oam/aliyun-dns-manager/releases/latest)
-- Source code: [JinSheng-oam/aliyun-dns-manager](https://github.com/JinSheng-oam/aliyun-dns-manager)
+- 最新发行版：[GitHub Releases](https://github.com/JinSheng-oam/aliyun-dns-manager/releases/latest)
+- 源码仓库：[JinSheng-oam/aliyun-dns-manager](https://github.com/JinSheng-oam/aliyun-dns-manager)
 
-After downloading the release package, unzip it, copy `.env.example` to `.env`, update the required settings, and run:
+下载发行版压缩包后，解压，复制 `.env.example` 为 `.env`，按需修改配置，然后运行：
 
 ```bash
 node scripts/run-with-port.js start
 ```
 
-On Windows, you can also double-click `start.bat` after configuring `.env`.
+在 Windows 上，配置好 `.env` 后也可以双击 `start.bat` 启动。
 
-## Quick Start
+## 快速开始
 
-### Requirements
+### 环境要求
 
-- Node.js 18 or later
+- Node.js 18 或更高版本
 - npm
 
-### Install
+### 安装
 
 ```bash
 git clone https://github.com/JinSheng-oam/aliyun-dns-manager.git
@@ -65,7 +65,7 @@ npm install
 copy .env.example .env
 ```
 
-Edit `.env` and set at least:
+编辑 `.env`，至少配置以下内容：
 
 ```env
 ADMIN_PASSWORD=your_dashboard_password
@@ -73,55 +73,55 @@ SESSION_SECRET=your_random_session_secret
 ENCRYPTION_KEY=your_random_encryption_key_string
 ```
 
-Then start the application:
+然后启动：
 
 ```bash
 npm run dev
 ```
 
-Open the address shown in the terminal, for example:
+打开终端输出的网址，例如：
 
 ```text
 http://localhost:3000
 ```
 
-## Configuration
+## 配置项
 
-| Variable | Required | Description |
+| 变量名 | 必填 | 说明 |
 | --- | --- | --- |
-| `ADMIN_PASSWORD` | Yes | Password required to enter the admin panel. |
-| `SESSION_SECRET` | Recommended | Secret used to sign login session cookies. |
-| `ENCRYPTION_KEY` | Recommended | Encrypts locally stored AccessKeys. |
-| `PORT` | No | Application port. Default is `3000`. |
-| `HOST` | No | Listening address. Default is `0.0.0.0`. |
-| `FORCE_HTTPS_COOKIE` | No | Set to `true` when deploying behind HTTPS. |
-| `LOGIN_WINDOW_SECONDS` | No | Login rate-limit window in seconds. |
-| `LOGIN_MAX_ATTEMPTS` | No | Maximum failed logins allowed in the window. |
+| `ADMIN_PASSWORD` | 是 | 进入后台所需的管理员密码。 |
+| `SESSION_SECRET` | 推荐 | 用于签名登录会话 Cookie。 |
+| `ENCRYPTION_KEY` | 推荐 | 用于加密本地保存的 AccessKey。 |
+| `PORT` | 否 | 应用端口，默认 `3000`。 |
+| `HOST` | 否 | 监听地址，默认 `0.0.0.0`。 |
+| `FORCE_HTTPS_COOKIE` | 否 | 在 HTTPS 部署时建议设为 `true`。 |
+| `LOGIN_WINDOW_SECONDS` | 否 | 登录失败限流窗口，单位秒。 |
+| `LOGIN_MAX_ATTEMPTS` | 否 | 限流窗口内允许的最大失败次数。 |
 
-## How Data Is Stored
+## 数据存储方式
 
-This application stores its runtime data locally on your own machine or server.
+本应用会把运行数据保存在你自己的机器或服务器本地。
 
-- AccessKeys are stored in local JSON files
-- operation logs are stored locally
-- when `ENCRYPTION_KEY` is configured, AccessKeys are encrypted before being written to disk
+- AccessKey 保存在本地 JSON 文件中
+- 操作日志保存在本地
+- 配置 `ENCRYPTION_KEY` 后，AccessKey 会在写入磁盘前加密
 
-No DNS credentials are uploaded to any third-party service by this project.
+本项目不会把 DNS 凭据上传到第三方服务。
 
-## Security Recommendations
+## 安全建议
 
-Before real use, especially on a server:
+正式使用时，尤其是部署到服务器上时，建议至少做到：
 
-- always set `ADMIN_PASSWORD`
-- set a dedicated `SESSION_SECRET`
-- set `ENCRYPTION_KEY`
-- use HTTPS when exposed over a network
-- place it behind a reverse proxy if possible
-- avoid exposing it directly to the public internet without additional protections
+- 一定设置 `ADMIN_PASSWORD`
+- 设置独立的 `SESSION_SECRET`
+- 设置 `ENCRYPTION_KEY`
+- 通过 HTTPS 提供访问
+- 尽量放在反向代理之后
+- 不要在没有额外保护的情况下直接暴露到公网
 
-## Deployment
+## 部署方式
 
-### Run as a Normal Node.js App
+### 普通 Node.js 运行
 
 ```bash
 npm install
@@ -129,7 +129,7 @@ npm run build
 npm run start
 ```
 
-### Run with PM2
+### 使用 PM2 运行
 
 ```bash
 npm install -g pm2
@@ -138,27 +138,27 @@ pm2 save
 pm2 startup
 ```
 
-### Build a Standalone Release Package
+### 打包独立部署目录
 
 ```bash
 npm run package
 ```
 
-This generates a deployable `release/` directory.
+执行后会生成可部署的 `release/` 目录。
 
-## Upgrade
+## 升级版本
 
-### If You Use the Release Package
+### 使用发行包时
 
-1. Stop the old version.
-2. Back up the old `.env` file and `data/` directory.
-3. Download and unzip the latest release package.
-4. Copy the backed-up `.env` and `data/` into the new version directory.
-5. Start the new version with `node scripts/run-with-port.js start` or `start.bat` on Windows.
+1. 停止旧版本。
+2. 备份旧版本目录中的 `.env` 文件和 `data/` 目录。
+3. 下载并解压最新发行包。
+4. 把备份的 `.env` 和 `data/` 复制到新版本目录。
+5. 使用 `node scripts/run-with-port.js start` 启动，Windows 也可以双击 `start.bat`。
 
-Keep the same `ENCRYPTION_KEY` when upgrading. If it changes, previously saved AccessKeys may no longer be readable.
+升级时请保留原来的 `ENCRYPTION_KEY`。如果它发生变化，之前保存的 AccessKey 可能无法读取。
 
-### If You Run from Source
+### 使用源码运行时
 
 ```bash
 git pull
@@ -167,35 +167,35 @@ npm run build
 npm run start
 ```
 
-Before upgrading from source, make sure your `.env` file and local `data/` directory are backed up.
+从源码升级前，也建议先备份 `.env` 文件和本地 `data/` 目录。
 
-## Typical Usage Flow
+## 典型使用流程
 
-1. Log in with the admin password.
-2. Add one or more Aliyun AccessKeys.
-3. Open the DNS page.
-4. Select an account and domain.
-5. Manage records from the web interface.
+1. 使用管理员密码登录后台。
+2. 添加一个或多个阿里云 AccessKey。
+3. 进入 DNS 页面。
+4. 选择账号和域名。
+5. 在网页中完成解析记录管理。
 
-## FAQ
+## 常见问题
 
-### Why can I not log in?
+### 为什么无法登录？
 
-Check the following:
+请检查：
 
-- `ADMIN_PASSWORD` is configured
-- the entered password is correct
-- too many failed attempts have not triggered rate limiting
-- `FORCE_HTTPS_COOKIE` is not enabled on a plain HTTP deployment
+- 是否配置了 `ADMIN_PASSWORD`
+- 输入密码是否正确
+- 是否因连续失败过多触发了限流
+- 在纯 HTTP 部署下是否错误开启了 `FORCE_HTTPS_COOKIE`
 
-### Why are previous AccessKeys no longer readable?
+### 为什么之前保存的 AccessKey 读不出来？
 
-In most cases, `ENCRYPTION_KEY` changed. Previously encrypted data can only be read with the same effective encryption key.
+通常是因为 `ENCRYPTION_KEY` 发生了变化。旧数据只能用相同的有效加密密钥读取。
 
-### Can I use it over the public internet?
+### 可以直接暴露到公网使用吗？
 
-Yes, but it is safer to use it behind HTTPS, a reverse proxy, and access controls.
+可以，但更推荐放在 HTTPS、反向代理和访问控制之后使用。
 
-## License
+## 开源协议
 
 MIT
