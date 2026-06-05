@@ -10,6 +10,7 @@ const { execSync } = require('child_process');
 
 const projectRoot = path.join(__dirname, '..');
 const releaseDir = path.join(projectRoot, 'release');
+const excludedReleaseSources = new Set();
 
 function ensureDir(dir) {
     if (!fs.existsSync(dir)) {
@@ -18,6 +19,10 @@ function ensureDir(dir) {
 }
 
 function copyRecursiveSync(src, dest) {
+    if (excludedReleaseSources.has(src)) {
+        return;
+    }
+
     const exists = fs.existsSync(src);
     const stats = exists && fs.statSync(src);
     const isDirectory = exists && stats.isDirectory();
@@ -29,6 +34,30 @@ function copyRecursiveSync(src, dest) {
     } else {
         fs.copyFileSync(src, dest);
     }
+}
+
+function removeRuntimeData() {
+    const envFile = path.join(releaseDir, '.env');
+    if (fs.existsSync(envFile)) {
+        fs.unlinkSync(envFile);
+    }
+
+    const dataDir = path.join(releaseDir, 'data');
+    if (fs.existsSync(dataDir)) {
+        removeDirectory(dataDir);
+    }
+}
+
+function removeDirectory(dir) {
+    for (const fileName of fs.readdirSync(dir)) {
+        const target = path.join(dir, fileName);
+        if (fs.statSync(target).isDirectory()) {
+            removeDirectory(target);
+        } else {
+            fs.unlinkSync(target);
+        }
+    }
+    fs.rmdirSync(dir);
 }
 
 async function main() {
@@ -52,9 +81,12 @@ async function main() {
         if (!fs.existsSync(standaloneDir)) {
             throw new Error('未发现 standalone 目录，请确保 next.config.ts 已配置 output: "standalone"');
         }
+        excludedReleaseSources.add(path.join(standaloneDir, '.env'));
+        excludedReleaseSources.add(path.join(standaloneDir, 'data'));
 
         console.log('🚚 复制核心运行文件...');
         copyRecursiveSync(standaloneDir, releaseDir);
+        removeRuntimeData();
 
         // 4. 复制静态资源 (Standalone 不内置静态资源)
         console.log('🖼️ 复制静态资源...');
@@ -76,12 +108,15 @@ async function main() {
         ensureDir(releaseScriptsDir);
         fs.copyFileSync(path.join(projectRoot, 'scripts', 'run-with-port.js'), path.join(releaseScriptsDir, 'run-with-port.js'));
 
-        // 更新 run-with-port.js 的逻辑以在 release 目录运行
-        // release 目录下的 server.js 是 next 生成的 entry
         const startBat = `@echo off
 if not exist .env (
-    echo [!] Warning: .env file not found. Copying from .env.example...
+    echo [!] .env file not found. Copying from .env.example...
     copy .env.example .env
+    echo.
+    echo Please edit .env first, then run start.bat again.
+    echo Required: ADMIN_PASSWORD, SESSION_SECRET, ENCRYPTION_KEY
+    pause
+    exit /b 1
 )
 echo Starting Aliyun DNS Manager via port helper...
 node scripts/run-with-port.js start
@@ -90,13 +125,61 @@ pause`;
 
         const startSh = `#!/bin/bash
 if [ ! -f .env ]; then
-    echo "[!] Warning: .env file not found. Copying from .env.example..."
+    echo "[!] .env file not found. Copying from .env.example..."
     cp .env.example .env
+    echo
+    echo "Please edit .env first, then run ./start.sh again."
+    echo "Required: ADMIN_PASSWORD, SESSION_SECRET, ENCRYPTION_KEY"
+    exit 1
 fi
 echo "Starting Aliyun DNS Manager via port helper..."
 node scripts/run-with-port.js start`;
         fs.writeFileSync(path.join(releaseDir, 'start.sh'), startSh);
         fs.chmodSync(path.join(releaseDir, 'start.sh'), '755');
+
+        const releaseReadme = `阿里云 DNS 管理器 - 发行包使用说明
+
+1. 首次使用
+
+- Windows: 双击 start.bat
+- macOS / Linux: 执行 ./start.sh
+
+如果当前目录没有 .env，启动脚本会自动从 .env.example 复制一份 .env，并提示你先修改配置。
+
+2. 必须配置
+
+请至少修改以下配置：
+
+- ADMIN_PASSWORD: 后台登录密码
+- SESSION_SECRET: 登录会话签名密钥
+- ENCRYPTION_KEY: 本地 AccessKey 加密密钥
+
+注意：ENCRYPTION_KEY 用于读取已保存的 AccessKey。升级版本时请保留原来的 ENCRYPTION_KEY。
+
+3. 手动启动
+
+配置 .env 后，也可以执行：
+
+node scripts/run-with-port.js start
+
+4. 升级版本
+
+- 停止旧版本
+- 备份旧版本目录中的 .env 和 data 目录
+- 解压新版本发行包
+- 将备份的 .env 和 data 复制到新版本目录
+- 重新启动
+
+5. 访问地址
+
+默认端口来自 .env 中的 PORT 配置。浏览器访问：
+
+http://服务器IP:端口
+`;
+        fs.writeFileSync(path.join(releaseDir, '使用说明.txt'), releaseReadme, 'utf8');
+
+        console.log('🔒 移除本地运行数据...');
+        removeRuntimeData();
 
         console.log('\n✅ 打包完成！');
         console.log('📍 发布包路径: ' + releaseDir);

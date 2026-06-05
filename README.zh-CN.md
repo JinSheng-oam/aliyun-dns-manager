@@ -146,6 +146,29 @@ npm run package
 
 执行后会生成可部署的 `release/` 目录。
 
+## 升级版本
+
+### 使用发行包时
+
+1. 停止旧版本。
+2. 备份旧版本目录中的 `.env` 文件和 `data/` 目录。
+3. 下载并解压最新发行包。
+4. 把备份的 `.env` 和 `data/` 复制到新版本目录。
+5. 使用 `node scripts/run-with-port.js start` 启动，Windows 也可以双击 `start.bat`。
+
+升级时请保留原来的 `ENCRYPTION_KEY`。如果它发生变化，之前保存的 AccessKey 可能无法读取。
+
+### 使用源码运行时
+
+```bash
+git pull
+npm install
+npm run build
+npm run start
+```
+
+从源码升级前，也建议先备份 `.env` 文件和本地 `data/` 目录。
+
 ## 典型使用流程
 
 1. 使用管理员密码登录后台。

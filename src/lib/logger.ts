@@ -1,7 +1,8 @@
 import fs from 'fs/promises';
 import path from 'path';
 
-const LOG_FILE_PATH = path.join(process.cwd(), 'data', 'logs.json');
+const DATA_DIR = path.join(process.cwd(), 'data');
+const LOG_FILE_PATH = path.join(DATA_DIR, 'logs.json');
 
 export interface LogEntry {
     id: string;
@@ -17,6 +18,7 @@ async function ensureLogFile() {
     try {
         await fs.access(LOG_FILE_PATH);
     } catch {
+        await fs.mkdir(DATA_DIR, { recursive: true });
         await fs.writeFile(LOG_FILE_PATH, '[]');
     }
 }

@@ -146,6 +146,29 @@ npm run package
 
 This generates a deployable `release/` directory.
 
+## Upgrade
+
+### If You Use the Release Package
+
+1. Stop the old version.
+2. Back up the old `.env` file and `data/` directory.
+3. Download and unzip the latest release package.
+4. Copy the backed-up `.env` and `data/` into the new version directory.
+5. Start the new version with `node scripts/run-with-port.js start` or `start.bat` on Windows.
+
+Keep the same `ENCRYPTION_KEY` when upgrading. If it changes, previously saved AccessKeys may no longer be readable.
+
+### If You Run from Source
+
+```bash
+git pull
+npm install
+npm run build
+npm run start
+```
+
+Before upgrading from source, make sure your `.env` file and local `data/` directory are backed up.
+
 ## Typical Usage Flow
 
 1. Log in with the admin password.
