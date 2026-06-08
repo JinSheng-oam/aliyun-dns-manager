@@ -51,7 +51,7 @@ if (isStandalone && command === 'start') {
     // 开发模式或标准生产启动
     console.log(`正在启动... 监听: ${host}:${port}`);
 
-    const args = ['next', command, '-p', port];
+    const args = [command, '-p', port];
     // 下面两行确保 HOST 配置能传给 next dev/start
     if (host !== '0.0.0.0' && host !== '::') {
         args.push('-H', host);
@@ -59,11 +59,9 @@ if (isStandalone && command === 'start') {
         args.push('-H', host); 
     }
 
-    const isWindows = process.platform === 'win32';
-    const nextPackageCmd = isWindows ? 'npx.cmd' : 'npx';
-    
-    // 强制使用 npx 来运行 next 确保能找到命令，同时处理 shell 注入风险
-    const nextProcess = spawn(nextPackageCmd, args, {
+    const nextCliPath = require.resolve('next/dist/bin/next');
+
+    const nextProcess = spawn(process.execPath, [nextCliPath, ...args], {
         stdio: 'inherit',
         env: { ...process.env, PORT: port, HOSTNAME: host }
     });

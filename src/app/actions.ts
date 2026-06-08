@@ -5,7 +5,8 @@ import {
     saveAccessKey,
     updateAccessKey,
     deleteAccessKey,
-    getAccessKeyById
+    getAccessKeyById,
+    AccessKeyReadError,
 } from '@/lib/key-manager';
 import { AliyunDnsClient } from '@/lib/aliyun-dns';
 import { AccessKey } from '@/lib/types';
@@ -13,8 +14,15 @@ import { revalidatePath } from 'next/cache';
 import { cookies, headers } from 'next/headers';
 import { logOperation, getLogs } from '@/lib/logger';
 import { isRateLimited, recordLoginFailure, clearLoginFailures } from '@/lib/rate-limit';
-import { createAdminSessionToken, getAuthCookieName, getSessionMaxAgeSeconds, isAdminAuthConfigured } from '@/lib/auth';
+import {
+    createAdminSessionToken,
+    getAuthCookieName,
+    getSessionMaxAgeSeconds,
+    isAdminAuthConfigured,
+    verifyAdminSessionToken,
+} from '@/lib/auth';
 import { getErrorMessage } from '@/lib/errors';
+import { createAppDataBackup, parseAndValidateBackup, restoreAppDataBackup } from '@/lib/backup-manager';
 
 type BatchOperationError = {
     error: string;
@@ -30,12 +38,22 @@ function isBatchOperationError(result: void | BatchOperationError): result is Ba
     return Boolean(result && result.error);
 }
 
+async function isCurrentAdminSessionValid(): Promise<boolean> {
+    const cookieStore = await cookies();
+    return verifyAdminSessionToken(cookieStore.get(getAuthCookieName())?.value);
+}
+
 export async function getAccessKeysAction() {
     try {
         const keys = await getAccessKeys();
         return { success: true, data: keys };
-    } catch {
-        return { success: false, error: 'Failed to fetch access keys' };
+    } catch (error: unknown) {
+        return {
+            success: false,
+            error: error instanceof AccessKeyReadError
+                ? error.message
+                : '读取 AccessKey 数据失败，请检查服务器日志。',
+        };
     }
 }
 
@@ -60,7 +78,10 @@ export async function addAccessKeyAction(name: string, accessKeyId: string, acce
     } catch (error: unknown) {
         const ip = getRequestIp((await headers()).get('x-forwarded-for'));
         await logOperation('Add AccessKey', `Failed to add key: ${name}`, 'failure', ip, getErrorMessage(error));
-        return { success: false, error: 'Failed to add access key' };
+        return {
+            success: false,
+            error: error instanceof AccessKeyReadError ? error.message : '添加 AccessKey 失败',
+        };
     }
 }
 
@@ -78,7 +99,10 @@ export async function deleteAccessKeyAction(id: string) {
     } catch (error: unknown) {
         const ip = getRequestIp((await headers()).get('x-forwarded-for'));
         await logOperation('Delete AccessKey', `Failed to delete key ID: ${id}`, 'failure', ip, getErrorMessage(error));
-        return { success: false, error: 'Failed to delete access key' };
+        return {
+            success: false,
+            error: error instanceof AccessKeyReadError ? error.message : '删除 AccessKey 失败',
+        };
     }
 }
 
@@ -106,7 +130,10 @@ export async function updateAccessKeyAction(id: string, name: string, accessKeyI
     } catch (error: unknown) {
         const ip = getRequestIp((await headers()).get('x-forwarded-for'));
         await logOperation('Update AccessKey', `Failed to update key ID: ${id}`, 'failure', ip, getErrorMessage(error));
-        return { success: false, error: 'Failed to update access key' };
+        return {
+            success: false,
+            error: error instanceof AccessKeyReadError ? error.message : '修改 AccessKey 失败',
+        };
     }
 }
 
@@ -320,6 +347,43 @@ export async function getLogsAction() {
         return { success: true, data: logs };
     } catch {
         return { success: false, error: 'Failed to fetch logs' };
+    }
+}
+
+export async function createDataBackupAction() {
+    if (!(await isCurrentAdminSessionValid())) {
+        return { success: false, error: '登录会话已失效，请重新登录' };
+    }
+
+    try {
+        const backup = await createAppDataBackup();
+        const ip = getRequestIp((await headers()).get('x-forwarded-for'));
+        await logOperation('Export Data Backup', 'Exported encrypted AccessKey data and operation logs', 'success', ip);
+        return { success: true, data: JSON.stringify(backup, null, 2) };
+    } catch (error: unknown) {
+        return { success: false, error: getErrorMessage(error, '创建备份失败') };
+    }
+}
+
+export async function restoreDataBackupAction(content: string) {
+    if (!(await isCurrentAdminSessionValid())) {
+        return { success: false, error: '登录会话已失效，请重新登录' };
+    }
+
+    try {
+        const backup = parseAndValidateBackup(content);
+        await restoreAppDataBackup(backup);
+        const ip = getRequestIp((await headers()).get('x-forwarded-for'));
+        await logOperation('Restore Data Backup', `Restored backup created at ${backup.createdAt}`, 'success', ip);
+        revalidatePath('/keys');
+        revalidatePath('/dns');
+        revalidatePath('/security');
+        return { success: true };
+    } catch (error: unknown) {
+        const ip = getRequestIp((await headers()).get('x-forwarded-for'));
+        const message = getErrorMessage(error, '恢复备份失败');
+        await logOperation('Restore Data Backup', 'Failed to restore data backup', 'failure', ip, message);
+        return { success: false, error: message };
     }
 }
 

@@ -6,6 +6,7 @@ const decoder = new TextDecoder();
 
 interface SessionPayload {
     exp: number;
+    authVersion: string;
 }
 
 function toBase64Url(bytes: Uint8Array): string {
@@ -53,6 +54,20 @@ function getSessionSecret(): string | null {
     return process.env.SESSION_SECRET?.trim() || adminPassword;
 }
 
+function getAdminPassword(): string | null {
+    return process.env.ADMIN_PASSWORD?.trim() || null;
+}
+
+async function getAuthVersion(secret: string): Promise<string | null> {
+    const adminPassword = getAdminPassword();
+
+    if (!adminPassword) {
+        return null;
+    }
+
+    return signValue(`admin-password:${adminPassword}`, secret);
+}
+
 export function getAuthCookieName(): string {
     return AUTH_COOKIE_NAME;
 }
@@ -72,8 +87,15 @@ export async function createAdminSessionToken(): Promise<string | null> {
         return null;
     }
 
+    const authVersion = await getAuthVersion(secret);
+
+    if (!authVersion) {
+        return null;
+    }
+
     const payload: SessionPayload = {
         exp: Date.now() + SESSION_MAX_AGE_SECONDS * 1000,
+        authVersion,
     };
     const encodedPayload = toBase64Url(encoder.encode(JSON.stringify(payload)));
     const signature = await signValue(encodedPayload, secret);
@@ -106,7 +128,14 @@ export async function verifyAdminSessionToken(token: string | undefined): Promis
 
     try {
         const payload = JSON.parse(decoder.decode(fromBase64Url(encodedPayload))) as SessionPayload;
-        return typeof payload.exp === 'number' && payload.exp > Date.now();
+        const currentAuthVersion = await getAuthVersion(secret);
+
+        return (
+            typeof payload.exp === 'number' &&
+            payload.exp > Date.now() &&
+            typeof payload.authVersion === 'string' &&
+            payload.authVersion === currentAuthVersion
+        );
     } catch {
         return false;
     }

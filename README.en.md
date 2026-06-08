@@ -22,6 +22,9 @@ You can use it to:
 - batch delete or batch change record status
 - import and export DNS records as CSV
 - protect the admin panel with password login
+- check password, session signing, local encryption, and HTTPS cookie configuration
+- search, filter, and export operation logs
+- back up and restore local AccessKey data and operation logs
 
 ## Who It Is For
 
@@ -108,6 +111,34 @@ This application stores its runtime data locally on your own machine or server.
 
 No DNS credentials are uploaded to any third-party service by this project.
 
+## Operation Logs
+
+Open **Operation Logs** from the DNS management page to:
+
+- search by action, IP address, details, or error message
+- filter successful or failed operations
+- export the current filtered results as CSV
+
+Exported CSV files use UTF-8 encoding and can be opened in common spreadsheet applications.
+
+## Data Backup and Restore
+
+Use the **Security Check** page to export or restore application data.
+
+The backup file contains:
+
+- encrypted AccessKey data
+- operation logs
+
+It does not contain `.env`, `ADMIN_PASSWORD`, `SESSION_SECRET`, or `ENCRYPTION_KEY`.
+
+Before restoring:
+
+1. Restore replaces the current AccessKeys and operation logs.
+2. You must use the same `ENCRYPTION_KEY` that was active when the backup was created.
+3. The application validates the format and decrypts the AccessKey data before writing anything.
+4. Export the current data first if you need an additional rollback copy.
+
 ## Security Recommendations
 
 Before real use, especially on a server:
@@ -118,6 +149,36 @@ Before real use, especially on a server:
 - use HTTPS when exposed over a network
 - place it behind a reverse proxy if possible
 - avoid exposing it directly to the public internet without additional protections
+- use a RAM user AccessKey instead of an Alibaba Cloud root account AccessKey
+- grant only the domains and DNS record actions that this tool needs
+
+### Minimum AccessKey Permission Example
+
+The following policy is a reference example that only allows DNS record management for one domain. Replace `account-id` and `example.com` with your own Alibaba Cloud account ID and domain name.
+
+```json
+{
+  "Version": "1",
+  "Statement": [
+    {
+      "Effect": "Allow",
+      "Action": [
+        "alidns:DescribeDomains",
+        "alidns:DescribeDomainRecords",
+        "alidns:AddDomainRecord",
+        "alidns:UpdateDomainRecord",
+        "alidns:SetDomainRecordStatus",
+        "alidns:DeleteDomainRecord"
+      ],
+      "Resource": [
+        "acs:alidns:*:account-id:domain/example.com"
+      ]
+    }
+  ]
+}
+```
+
+If you need to manage multiple domains, add them to `Resource`. Avoid granting broad permissions such as `alidns:*` or `*:*`.
 
 ## Deployment
 
@@ -158,6 +219,8 @@ This generates a deployable `release/` directory.
 
 Keep the same `ENCRYPTION_KEY` when upgrading. If it changes, previously saved AccessKeys may no longer be readable.
 
+After upgrading to a version with the new session validation, existing sessions may be invalidated once. Log in again with the current `ADMIN_PASSWORD`. Later changes to `ADMIN_PASSWORD` or `SESSION_SECRET` will also invalidate old sessions automatically.
+
 ### If You Run from Source
 
 ```bash
@@ -191,6 +254,13 @@ Check the following:
 ### Why are previous AccessKeys no longer readable?
 
 In most cases, `ENCRYPTION_KEY` changed. Previously encrypted data can only be read with the same effective encryption key.
+
+The key and DNS pages show a read error and stop AccessKey writes so the existing data file is not overwritten. When this happens:
+
+1. Do not delete or overwrite `data/access_keys.json`.
+2. Back up the entire `data/` directory.
+3. Restore the original `ENCRYPTION_KEY` used when the AccessKeys were saved.
+4. If the key did not change, check whether `data/access_keys.json` is damaged.
 
 ### Can I use it over the public internet?
 

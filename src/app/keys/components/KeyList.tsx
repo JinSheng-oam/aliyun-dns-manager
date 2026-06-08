@@ -11,9 +11,10 @@ import { useRouter } from 'next/navigation';
 
 interface KeyListProps {
     initialKeys: AccessKey[];
+    readError?: string;
 }
 
-export function KeyList({ initialKeys }: KeyListProps) {
+export function KeyList({ initialKeys, readError }: KeyListProps) {
     const [isAdding, setIsAdding] = useState(false);
     const [editingKeyId, setEditingKeyId] = useState<string | null>(null);
     const [isLoading, setIsLoading] = useState(false);
@@ -101,7 +102,7 @@ export function KeyList({ initialKeys }: KeyListProps) {
         <div className="space-y-6">
             <div className="flex items-center justify-between">
                 <h2 className="text-2xl font-bold">Access Keys</h2>
-                <Button onClick={handleStartAdd} variant="primary">
+                <Button onClick={handleStartAdd} variant="primary" disabled={Boolean(readError)}>
                     <Plus className="mr-2 h-4 w-4" /> {isAdding && !editingKeyId ? '收起表单' : '添加密钥'}
                 </Button>
             </div>
@@ -138,7 +139,7 @@ export function KeyList({ initialKeys }: KeyListProps) {
             )}
 
             <div className="grid gap-4">
-                {initialKeys.length === 0 && !isAdding && (
+                {initialKeys.length === 0 && !isAdding && !readError && (
                     <div className="text-center py-10 text-gray-500">
                         暂无密钥，请点击上方按钮添加。
                     </div>

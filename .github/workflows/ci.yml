@@ -15,7 +15,7 @@ permissions:
 
 jobs:
   test:
-    name: Lint, typecheck, audit, and package
+    name: Test, lint, typecheck, audit, and package
     runs-on: ubuntu-latest
 
     steps:
@@ -36,6 +36,9 @@ jobs:
 
       - name: Run typecheck
         run: npx tsc --noEmit
+
+      - name: Run security and data tests
+        run: npm run test:ci
 
       - name: Audit production dependencies
         run: npm audit --omit=dev

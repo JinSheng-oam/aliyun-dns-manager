@@ -22,6 +22,9 @@
 - 批量删除或批量修改记录状态
 - 通过 CSV 导入和导出解析记录
 - 使用管理员密码保护后台入口
+- 检查密码、会话签名、本地加密和 HTTPS Cookie 配置状态
+- 搜索、筛选并导出操作日志
+- 备份和恢复本地 AccessKey 数据及操作日志
 
 ## 适用场景
 
@@ -108,6 +111,34 @@ http://localhost:3000
 
 本项目不会把 DNS 凭据上传到第三方服务。
 
+## 操作日志
+
+在 DNS 管理页面打开“操作日志”，可以：
+
+- 按操作、IP、详情或错误信息搜索
+- 按成功或失败状态筛选
+- 将当前筛选结果导出为 CSV
+
+导出的 CSV 使用 UTF-8 编码，可直接使用常见表格软件打开。
+
+## 数据备份与恢复
+
+在“安全检查”页面可以导出或恢复应用数据。
+
+备份文件包含：
+
+- 加密后的 AccessKey 数据
+- 操作日志
+
+备份文件不包含 `.env`、`ADMIN_PASSWORD`、`SESSION_SECRET` 或 `ENCRYPTION_KEY`。
+
+恢复前请注意：
+
+1. 恢复会覆盖当前 AccessKey 和操作日志。
+2. 必须使用创建备份时的同一个 `ENCRYPTION_KEY`。
+3. 系统会先验证备份格式并尝试解密 AccessKey，验证失败不会写入数据。
+4. 建议恢复前先导出当前数据作为额外备份。
+
 ## 安全建议
 
 正式使用时，尤其是部署到服务器上时，建议至少做到：
@@ -118,6 +149,36 @@ http://localhost:3000
 - 通过 HTTPS 提供访问
 - 尽量放在反向代理之后
 - 不要在没有额外保护的情况下直接暴露到公网
+- 使用 RAM 子账号 AccessKey，不要使用阿里云主账号 AccessKey
+- 尽量只授予需要管理的域名和解析记录操作权限
+
+### AccessKey 最小权限示例
+
+下面是一个参考策略，仅允许管理指定域名的解析记录。使用前请把 `账号ID` 和 `example.com` 替换成你自己的阿里云账号 ID 和域名。
+
+```json
+{
+  "Version": "1",
+  "Statement": [
+    {
+      "Effect": "Allow",
+      "Action": [
+        "alidns:DescribeDomains",
+        "alidns:DescribeDomainRecords",
+        "alidns:AddDomainRecord",
+        "alidns:UpdateDomainRecord",
+        "alidns:SetDomainRecordStatus",
+        "alidns:DeleteDomainRecord"
+      ],
+      "Resource": [
+        "acs:alidns:*:账号ID:domain/example.com"
+      ]
+    }
+  ]
+}
+```
+
+如果需要管理多个域名，可以在 `Resource` 中继续添加域名。不要为了省事直接授予 `alidns:*` 或 `*:*`。
 
 ## 部署方式
 
@@ -158,6 +219,8 @@ npm run package
 
 升级时请保留原来的 `ENCRYPTION_KEY`。如果它发生变化，之前保存的 AccessKey 可能无法读取。
 
+升级到包含新版会话校验的版本后，已有登录会话可能会失效一次，请使用当前 `ADMIN_PASSWORD` 重新登录。之后修改 `ADMIN_PASSWORD` 或 `SESSION_SECRET` 也会自动使旧会话失效。
+
 ### 使用源码运行时
 
 ```bash
@@ -191,6 +254,13 @@ npm run start
 ### 为什么之前保存的 AccessKey 读不出来？
 
 通常是因为 `ENCRYPTION_KEY` 发生了变化。旧数据只能用相同的有效加密密钥读取。
+
+应用会在密钥管理页和 DNS 管理页显示读取失败提示，并停止 AccessKey 写入，避免损坏的数据文件被覆盖。出现提示时：
+
+1. 不要删除或覆盖 `data/access_keys.json`。
+2. 先备份整个 `data/` 目录。
+3. 恢复保存这些 AccessKey 时使用的原 `ENCRYPTION_KEY`。
+4. 如果密钥没有变化，请检查 `data/access_keys.json` 是否损坏。
 
 ### 可以直接暴露到公网使用吗？
 

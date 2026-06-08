@@ -2,7 +2,7 @@
 
 import Link from 'next/link';
 import { usePathname } from 'next/navigation';
-import { Key, Globe, LayoutDashboard, LogOut } from 'lucide-react';
+import { Key, Globe, LayoutDashboard, LogOut, ShieldCheck } from 'lucide-react';
 import { logoutAction } from '@/app/actions';
 import { clsx } from 'clsx';
 import { twMerge } from 'tailwind-merge';
@@ -11,6 +11,7 @@ const navItems = [
     { name: '仪表盘', href: '/', icon: LayoutDashboard },
     { name: '密钥管理', href: '/keys', icon: Key },
     { name: 'DNS 管理', href: '/dns', icon: Globe },
+    { name: '安全检查', href: '/security', icon: ShieldCheck },
 ];
 
 export function Sidebar() {
@@ -70,7 +71,7 @@ export function Sidebar() {
                     <span>退出登录</span>
                 </button>
                 <div className="text-[10px] text-gray-600 px-4 text-center uppercase tracking-widest">
-                    V1.1.0 • SECURED
+                    V0.2.0 • SECURED
                 </div>
             </div>
         </div>

@@ -1,8 +1,10 @@
 import { getAccessKeysAction } from '@/app/actions';
 import { DnsManager } from './components/DnsManager';
+import { AlertTriangle } from 'lucide-react';
 
 export default async function DnsPage() {
-    const { data: keys = [] } = await getAccessKeysAction();
+    const result = await getAccessKeysAction();
+    const keys = result.data || [];
 
     return (
         <div className="max-w-5xl mx-auto space-y-8">
@@ -15,7 +17,19 @@ export default async function DnsPage() {
                 </p>
             </div>
 
-            <DnsManager initialKeys={keys || []} />
+            {!result.success && (
+                <div className="rounded-xl border border-red-400/30 bg-red-500/10 p-4 text-red-100">
+                    <div className="flex items-start gap-3">
+                        <AlertTriangle className="mt-0.5 h-5 w-5 shrink-0 text-red-300" />
+                        <div>
+                            <h2 className="font-semibold">无法加载 AccessKey</h2>
+                            <p className="mt-1 text-sm leading-6 text-red-100/80">{result.error}</p>
+                        </div>
+                    </div>
+                </div>
+            )}
+
+            {result.success && <DnsManager initialKeys={keys} />}
         </div>
     );
 }

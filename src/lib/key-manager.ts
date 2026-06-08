@@ -1,8 +1,7 @@
 import fs from 'fs/promises';
 import path from 'path';
 import crypto from 'crypto';
-import { AccessKey } from './types';
-import { getErrorMessage } from './errors';
+import type { AccessKey } from './types';
 
 const DATA_DIR = path.join(process.cwd(), 'data');
 const DATA_FILE = path.join(DATA_DIR, 'access_keys.json');
@@ -11,6 +10,16 @@ const DATA_FILE = path.join(DATA_DIR, 'access_keys.json');
 const ALGORITHM = 'aes-256-gcm';
 const IV_LENGTH = 12;
 const TAG_LENGTH = 16;
+export const ACCESS_KEY_READ_ERROR_MESSAGE =
+    '无法读取本地 AccessKey 数据。请确认 ENCRYPTION_KEY 与保存数据时一致，并检查 data/access_keys.json 是否损坏。请勿继续写入，建议先备份 data 目录。';
+
+export class AccessKeyReadError extends Error {
+    constructor() {
+        super(ACCESS_KEY_READ_ERROR_MESSAGE);
+        this.name = 'AccessKeyReadError';
+    }
+}
+
 // Use ENCRYPTION_KEY from env, or a fallback for development (NOT recommended for production)
 const ENCRYPTION_KEY = process.env.ENCRYPTION_KEY
     ? crypto.createHash('sha256').update(process.env.ENCRYPTION_KEY.trim()).digest()
@@ -32,6 +41,56 @@ function decrypt(base64Data: string): string {
     const decipher = crypto.createDecipheriv(ALGORITHM, ENCRYPTION_KEY, iv);
     decipher.setAuthTag(tag);
     return Buffer.concat([decipher.update(encrypted), decipher.final()]).toString('utf8');
+}
+
+function getSafeErrorMessage(error: unknown): string {
+    return error instanceof Error && error.message.trim() ? error.message : 'Unknown error';
+}
+
+function isAccessKey(value: unknown): value is AccessKey {
+    if (!value || typeof value !== 'object') {
+        return false;
+    }
+
+    const key = value as Record<string, unknown>;
+    return (
+        typeof key.id === 'string' &&
+        typeof key.name === 'string' &&
+        typeof key.accessKeyId === 'string' &&
+        typeof key.accessKeySecret === 'string' &&
+        typeof key.createdAt === 'string'
+    );
+}
+
+export function validateAccessKeyBackupData(data: string): void {
+    const parsed = data.trim().startsWith('[')
+        ? JSON.parse(data)
+        : JSON.parse(decrypt(data));
+
+    if (!Array.isArray(parsed) || !parsed.every(isAccessKey)) {
+        throw new AccessKeyReadError();
+    }
+}
+
+export async function readAccessKeyBackupData(): Promise<string | null> {
+    await ensureDataDir();
+
+    try {
+        const data = await fs.readFile(DATA_FILE, 'utf-8');
+        validateAccessKeyBackupData(data);
+        return data;
+    } catch (error: unknown) {
+        if ((error as NodeJS.ErrnoException).code === 'ENOENT') {
+            return null;
+        }
+
+        if (error instanceof AccessKeyReadError) {
+            throw error;
+        }
+
+        console.error('读取 AccessKey 备份数据失败:', getSafeErrorMessage(error));
+        throw new AccessKeyReadError();
+    }
 }
 
 // Ensure data directory exists
@@ -57,8 +116,12 @@ export async function getAccessKeys(): Promise<AccessKey[]> {
         }
         return JSON.parse(decrypt(data));
     } catch (error: unknown) {
-        console.error('获取 AccessKeys 失败，可能是加密密钥 (ENCRYPTION_KEY) 不匹配或文件损坏:', getErrorMessage(error));
-        return [];
+        if ((error as NodeJS.ErrnoException).code === 'ENOENT') {
+            return [];
+        }
+
+        console.error('获取 AccessKeys 失败，可能是加密密钥 (ENCRYPTION_KEY) 不匹配或文件损坏:', getSafeErrorMessage(error));
+        throw new AccessKeyReadError();
     }
 }
 
