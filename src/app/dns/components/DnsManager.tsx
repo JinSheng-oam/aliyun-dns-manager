@@ -15,9 +15,10 @@ import {
 } from '@/app/actions';
 import { Button } from '@/components/ui/Button';
 import { Input } from '@/components/ui/Input';
-import { Plus, Trash2, ArrowUpDown, ChevronUp, ChevronDown, Filter, Globe, ArrowLeft, Loader2, Edit2, PlayCircle, PauseCircle, X, Copy, History, Download, UploadCloud } from 'lucide-react';
+import { Plus, Trash2, ArrowUpDown, ChevronUp, ChevronDown, Filter, Globe, ArrowLeft, Loader2, Edit2, PlayCircle, PauseCircle, X, Copy, History, Download, UploadCloud, AlertTriangle, CheckCircle2, FileSpreadsheet } from 'lucide-react';
 import { useToast } from '@/components/ui/Toast';
 import { LogsViewer } from '@/components/LogsViewer';
+import { createDnsImportPreview, type DnsImportPreview } from '@/lib/dns-import';
 
 interface DnsManagerProps {
     initialKeys: AccessKey[];
@@ -56,6 +57,8 @@ export function DnsManager({ initialKeys }: DnsManagerProps) {
     const [isFormOpen, setIsFormOpen] = useState(false);
     const [editingRecord, setEditingRecord] = useState<DnsRecord | null>(null);
     const [isSubmitting, setIsSubmitting] = useState(false);
+    const [importPreview, setImportPreview] = useState<DnsImportPreview | null>(null);
+    const [importFileName, setImportFileName] = useState('');
     const [rr, setRr] = useState('');
     const [type, setType] = useState('A');
     const [value, setValue] = useState('');
@@ -85,6 +88,8 @@ export function DnsManager({ initialKeys }: DnsManagerProps) {
         setLoadingDomains(true);
         setSelectedDomain(null);
         setRecords([]);
+        setImportPreview(null);
+        setImportFileName('');
 
         const res = await listDomainsAction(selectedKeyId);
         if (res.success) {
@@ -123,6 +128,8 @@ export function DnsManager({ initialKeys }: DnsManagerProps) {
         setRecords([]);
         setSearchTerm('');
         setTypeFilter('All');
+        setImportPreview(null);
+        setImportFileName('');
         resetForm();
     };
 
@@ -290,49 +297,50 @@ export function DnsManager({ initialKeys }: DnsManagerProps) {
         if (!file || !selectedDomain) return;
 
         const reader = new FileReader();
-        reader.onload = async (event) => {
+        reader.onload = (event) => {
             try {
                 const text = event.target?.result as string;
-                const lines = text.split(/\r?\n/).filter(line => line.trim() !== '');
-                // Skip header if present (simple check)
-                const startIndex = lines[0].includes('主机记录') || lines[0].includes('RR') ? 1 : 0;
+                const preview = createDnsImportPreview(text, records);
 
-                const newRecords = [];
-                for (let i = startIndex; i < lines.length; i++) {
-                    const parts = lines[i].split(',').map(p => p.trim());
-                    if (parts.length >= 3) {
-                        newRecords.push({
-                            rr: parts[0],
-                            type: parts[1],
-                            value: parts[2],
-                            ttl: parts[3] ? Number(parts[3]) : 600
-                        });
-                    }
-                }
-
-                if (newRecords.length === 0) {
+                if (preview.rows.length === 0) {
                     toast.error('未识别到有效记录');
                     return;
                 }
 
-                if (confirm(`解析到 ${newRecords.length} 条记录，确定导入吗？`)) {
-                    setIsSubmitting(true);
-                    const res = await batchAddDnsRecordsAction(selectedKeyId, selectedDomain.domainName, newRecords);
-                    if (res.success) {
-                        toast.success(`成功导入 ${newRecords.length} 条记录`);
-                        await refreshRecords();
-                    } else {
-                        toast.error(res.error || '导入失败');
-                    }
-                    setIsSubmitting(false);
-                }
+                setImportPreview(preview);
+                setImportFileName(file.name);
             } catch (err) {
                 console.error('Import failed', err);
                 toast.error('文件解析失败');
+            } finally {
+                if (fileInputRef.current) fileInputRef.current.value = '';
             }
-            if (fileInputRef.current) fileInputRef.current.value = '';
         };
         reader.readAsText(file);
+    };
+
+    const handleConfirmImport = async () => {
+        if (!selectedDomain || !importPreview) return;
+        const newRecords = importPreview.rows
+            .filter(row => row.status === 'add' && row.record)
+            .map(row => row.record!);
+
+        if (newRecords.length === 0) {
+            toast.error('没有可新增的记录');
+            return;
+        }
+
+        setIsSubmitting(true);
+        const res = await batchAddDnsRecordsAction(selectedKeyId, selectedDomain.domainName, newRecords);
+        if (res.success) {
+            toast.success(`成功导入 ${newRecords.length} 条记录`);
+            setImportPreview(null);
+            setImportFileName('');
+            await refreshRecords();
+        } else {
+            toast.error(res.error || '导入失败');
+        }
+        setIsSubmitting(false);
     };
 
     const requestSort = (key: SortKey) => {
@@ -486,6 +494,95 @@ export function DnsManager({ initialKeys }: DnsManagerProps) {
                                 )}
                             </div>
                         </div>
+
+                        {importPreview && (
+                            <section className="glass overflow-hidden rounded-xl border border-cyan-400/25 bg-cyan-500/5 animate-in fade-in slide-in-from-top-2">
+                                <div className="flex flex-col gap-4 border-b border-white/10 p-5 md:flex-row md:items-center md:justify-between">
+                                    <div className="flex items-start gap-3">
+                                        <div className="rounded-lg bg-cyan-400/10 p-2 text-cyan-300">
+                                            <FileSpreadsheet className="h-5 w-5" />
+                                        </div>
+                                        <div>
+                                            <h4 className="font-semibold text-white">导入预览</h4>
+                                            <p className="mt-1 text-xs text-gray-400">
+                                                {importFileName} · 确认前不会修改阿里云 DNS
+                                            </p>
+                                        </div>
+                                    </div>
+                                    <div className="flex gap-2">
+                                        <Button
+                                            variant="ghost"
+                                            onClick={() => {
+                                                setImportPreview(null);
+                                                setImportFileName('');
+                                            }}
+                                            disabled={isSubmitting}
+                                        >
+                                            取消
+                                        </Button>
+                                        <Button
+                                            onClick={handleConfirmImport}
+                                            isLoading={isSubmitting}
+                                            disabled={importPreview.summary.add === 0}
+                                        >
+                                            确认新增 {importPreview.summary.add} 条
+                                        </Button>
+                                    </div>
+                                </div>
+
+                                <div className="grid grid-cols-3 gap-px bg-white/10">
+                                    <div className="bg-gray-950/70 px-4 py-3">
+                                        <div className="text-xl font-bold text-green-300">{importPreview.summary.add}</div>
+                                        <div className="text-xs text-gray-500">将新增</div>
+                                    </div>
+                                    <div className="bg-gray-950/70 px-4 py-3">
+                                        <div className="text-xl font-bold text-amber-300">{importPreview.summary.skip}</div>
+                                        <div className="text-xs text-gray-500">将跳过</div>
+                                    </div>
+                                    <div className="bg-gray-950/70 px-4 py-3">
+                                        <div className="text-xl font-bold text-red-300">{importPreview.summary.error}</div>
+                                        <div className="text-xs text-gray-500">格式错误</div>
+                                    </div>
+                                </div>
+
+                                <div className="max-h-72 overflow-auto">
+                                    <table className="w-full min-w-[680px] text-left text-xs">
+                                        <thead className="sticky top-0 bg-gray-950/95 text-gray-500">
+                                            <tr>
+                                                <th className="px-4 py-3 font-medium">行</th>
+                                                <th className="px-4 py-3 font-medium">结果</th>
+                                                <th className="px-4 py-3 font-medium">主机记录</th>
+                                                <th className="px-4 py-3 font-medium">类型</th>
+                                                <th className="px-4 py-3 font-medium">记录值</th>
+                                                <th className="px-4 py-3 font-medium">TTL</th>
+                                                <th className="px-4 py-3 font-medium">说明</th>
+                                            </tr>
+                                        </thead>
+                                        <tbody className="divide-y divide-white/5">
+                                            {importPreview.rows.map((row, index) => (
+                                                <tr key={`${row.line}-${index}`} className="text-gray-300">
+                                                    <td className="px-4 py-3 text-gray-600">{row.line}</td>
+                                                    <td className="px-4 py-3">
+                                                        {row.status === 'add' && <CheckCircle2 className="h-4 w-4 text-green-400" />}
+                                                        {row.status === 'skip' && <span className="text-amber-300">跳过</span>}
+                                                        {row.status === 'error' && <AlertTriangle className="h-4 w-4 text-red-400" />}
+                                                    </td>
+                                                    <td className="px-4 py-3 font-medium text-white">{row.record?.rr || '-'}</td>
+                                                    <td className="px-4 py-3">{row.record?.type || '-'}</td>
+                                                    <td className="max-w-[220px] truncate px-4 py-3 font-mono" title={row.record?.value}>
+                                                        {row.record?.value || '-'}
+                                                    </td>
+                                                    <td className="px-4 py-3">{row.record?.ttl || '-'}</td>
+                                                    <td className={`px-4 py-3 ${row.status === 'error' ? 'text-red-300' : 'text-gray-500'}`}>
+                                                        {row.reason}
+                                                    </td>
+                                                </tr>
+                                            ))}
+                                        </tbody>
+                                    </table>
+                                </div>
+                            </section>
+                        )}
 
                         {/* Add/Edit Form */}
                         {isFormOpen && (

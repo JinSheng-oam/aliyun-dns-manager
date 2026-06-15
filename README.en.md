@@ -20,7 +20,7 @@ You can use it to:
 - view, search, filter, and sort DNS records
 - add, edit, enable, disable, and delete DNS records
 - batch delete or batch change record status
-- import and export DNS records as CSV
+- import and export DNS records as CSV, with a preview of additions, skipped rows, and errors
 - protect the admin panel with password login
 - check password, session signing, local encryption, and HTTPS cookie configuration
 - search, filter, and export operation logs
@@ -120,6 +120,16 @@ Open **Operation Logs** from the DNS management page to:
 - export the current filtered results as CSV
 
 Exported CSV files use UTF-8 encoding and can be opened in common spreadsheet applications.
+
+## CSV import preview
+
+After selecting a domain on the DNS management page, upload a CSV file to review every row before making changes:
+
+- "Add" rows will be created after confirmation
+- "Skip" rows already exist in the domain or are duplicated in the same file
+- "Error" rows are missing required fields or contain an invalid TTL
+
+Only rows marked for addition are sent to Alibaba Cloud after confirmation. Closing the preview does not change DNS records.
 
 ## Data Backup and Restore
 

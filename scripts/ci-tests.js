@@ -55,6 +55,34 @@ async function testLogCsvExport() {
     assert.equal(csv.split('\r\n').length, 2, 'CSV must contain one header and one data row');
 }
 
+async function testDnsImportPreview() {
+    const { createDnsImportPreview } = await jiti.import(path.join(projectRoot, 'src/lib/dns-import.ts'));
+    const preview = createDnsImportPreview(
+        '\uFEFF主机记录,记录类型,记录值,TTL,状态\r\n' +
+        'www,A,1.1.1.1,600,Enable\r\n' +
+        'api,CNAME,"target,with-comma.example.com",600,Enable\r\n' +
+        'api,CNAME,"target,with-comma.example.com",600,Enable\r\n' +
+        'bad,A,2.2.2.2,not-a-number,Enable\r\n' +
+        ',TXT,missing.example.com,600,Enable',
+        [{
+            RecordId: '1',
+            RR: 'www',
+            Type: 'A',
+            Value: '1.1.1.1',
+            TTL: 600,
+            DomainName: 'example.com',
+            Status: 'Enable',
+        }]
+    );
+
+    assert.deepEqual(preview.summary, { add: 1, skip: 2, error: 2 });
+    assert.equal(preview.rows[0].status, 'skip', 'Existing records must be skipped');
+    assert.equal(preview.rows[1].record.value, 'target,with-comma.example.com');
+    assert.equal(preview.rows[2].reason, '与文件中前面的记录重复');
+    assert.equal(preview.rows[3].status, 'error', 'Invalid TTL values must be rejected');
+    assert.equal(preview.rows[4].status, 'error', 'Required fields must be validated');
+}
+
 async function silenceExpectedConsoleError(callback) {
     const originalConsoleError = console.error;
     console.error = () => undefined;
@@ -174,6 +202,7 @@ async function main() {
     const tests = [
         ['session invalidation', testSessionInvalidation],
         ['log CSV export', testLogCsvExport],
+        ['DNS import preview', testDnsImportPreview],
         ['AccessKey and backup safety', testAccessKeyAndBackupSafety],
     ];
 
