@@ -15,10 +15,10 @@ import {
 } from '@/app/actions';
 import { Button } from '@/components/ui/Button';
 import { Input } from '@/components/ui/Input';
-import { Plus, Trash2, ArrowUpDown, ChevronUp, ChevronDown, Filter, Globe, ArrowLeft, Loader2, Edit2, PlayCircle, PauseCircle, X, Copy, History, Download, UploadCloud, AlertTriangle, CheckCircle2, FileSpreadsheet } from 'lucide-react';
+import { Plus, Trash2, ArrowUpDown, ChevronUp, ChevronDown, Filter, Globe, ArrowLeft, Loader2, Edit2, PlayCircle, PauseCircle, X, Copy, History, Download, UploadCloud, AlertTriangle, CheckCircle2, FileSpreadsheet, Archive } from 'lucide-react';
 import { useToast } from '@/components/ui/Toast';
 import { LogsViewer } from '@/components/LogsViewer';
-import { createDnsImportPreview, type DnsImportPreview } from '@/lib/dns-import';
+import { createDnsImportPreview, createDomainBackup, type DnsImportPreview } from '@/lib/dns-import';
 
 interface DnsManagerProps {
     initialKeys: AccessKey[];
@@ -286,6 +286,25 @@ export function DnsManager({ initialKeys }: DnsManagerProps) {
         document.body.appendChild(link);
         link.click();
         document.body.removeChild(link);
+        URL.revokeObjectURL(url);
+    };
+
+    const handleDomainBackup = () => {
+        if (!selectedDomain || !records.length) {
+            toast.error('暂无记录可备份');
+            return;
+        }
+
+        const backup = createDomainBackup(selectedDomain.domainName, records);
+        const blob = new Blob([JSON.stringify(backup, null, 2)], { type: 'application/json;charset=utf-8' });
+        const url = URL.createObjectURL(blob);
+        const link = document.createElement('a');
+        link.href = url;
+        link.download = `dns_backup_${selectedDomain.domainName}_${new Date().toISOString().split('T')[0]}.json`;
+        document.body.appendChild(link);
+        link.click();
+        document.body.removeChild(link);
+        URL.revokeObjectURL(url);
     };
 
     const handleImportClick = () => {
@@ -300,7 +319,7 @@ export function DnsManager({ initialKeys }: DnsManagerProps) {
         reader.onload = (event) => {
             try {
                 const text = event.target?.result as string;
-                const preview = createDnsImportPreview(text, records);
+                const preview = createDnsImportPreview(text, records, selectedDomain.domainName);
 
                 if (preview.rows.length === 0) {
                     toast.error('未识别到有效记录');
@@ -478,11 +497,14 @@ export function DnsManager({ initialKeys }: DnsManagerProps) {
                                     type="file"
                                     ref={fileInputRef}
                                     className="hidden"
-                                    accept=".csv,.txt"
+                                    accept=".csv,.txt,.json"
                                     onChange={handleFileChange}
                                 />
                                 <Button variant="ghost" size="icon" onClick={handleExport} title="导出 CSV">
                                     <Download className="h-5 w-5" />
+                                </Button>
+                                <Button variant="ghost" size="icon" onClick={handleDomainBackup} title="导出域名完整备份">
+                                    <Archive className="h-5 w-5" />
                                 </Button>
                                 <Button variant="ghost" size="icon" onClick={handleImportClick} title="导入 CSV">
                                     <UploadCloud className="h-5 w-5" />
@@ -546,7 +568,7 @@ export function DnsManager({ initialKeys }: DnsManagerProps) {
                                 </div>
 
                                 <div className="max-h-72 overflow-auto">
-                                    <table className="w-full min-w-[680px] text-left text-xs">
+                                    <table className="w-full min-w-[760px] text-left text-xs">
                                         <thead className="sticky top-0 bg-gray-950/95 text-gray-500">
                                             <tr>
                                                 <th className="px-4 py-3 font-medium">行</th>
@@ -555,6 +577,7 @@ export function DnsManager({ initialKeys }: DnsManagerProps) {
                                                 <th className="px-4 py-3 font-medium">类型</th>
                                                 <th className="px-4 py-3 font-medium">记录值</th>
                                                 <th className="px-4 py-3 font-medium">TTL</th>
+                                                <th className="px-4 py-3 font-medium">状态</th>
                                                 <th className="px-4 py-3 font-medium">说明</th>
                                             </tr>
                                         </thead>
@@ -573,6 +596,9 @@ export function DnsManager({ initialKeys }: DnsManagerProps) {
                                                         {row.record?.value || '-'}
                                                     </td>
                                                     <td className="px-4 py-3">{row.record?.ttl || '-'}</td>
+                                                    <td className="px-4 py-3">
+                                                        {row.record?.status === 'Disable' ? '暂停' : row.record ? '启用' : '-'}
+                                                    </td>
                                                     <td className={`px-4 py-3 ${row.status === 'error' ? 'text-red-300' : 'text-gray-500'}`}>
                                                         {row.reason}
                                                     </td>

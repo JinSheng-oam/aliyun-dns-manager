@@ -113,7 +113,12 @@ export class AliyunDnsClient {
         });
         const runtime = new $Util.RuntimeOptions({});
         try {
-            await client.addDomainRecordWithOptions(addDomainRecordRequest, runtime);
+            const response = await client.addDomainRecordWithOptions(addDomainRecordRequest, runtime);
+            const recordId = response.body?.recordId;
+            if (!recordId) {
+                throw new Error('阿里云未返回新记录 ID');
+            }
+            return recordId;
         } catch (error: unknown) {
             console.error("Add Record Error:", error);
             throw new Error(getErrorMessage(error, "Failed to add DNS record"));

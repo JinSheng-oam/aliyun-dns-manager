@@ -5,6 +5,7 @@ export type DnsImportRecord = {
     type: string;
     value: string;
     ttl: number;
+    status: 'Enable' | 'Disable';
 };
 
 export type DnsImportPreviewRow = {
@@ -26,6 +27,20 @@ export type DnsImportPreview = {
 type CsvRow = {
     line: number;
     values: string[];
+};
+
+type DomainBackup = {
+    format: 'aliyun-dns-manager-domain-backup';
+    version: 1;
+    domain: string;
+    createdAt: string;
+    records: Array<{
+        rr: string;
+        type: string;
+        value: string;
+        ttl: number;
+        status: 'Enable' | 'Disable';
+    }>;
 };
 
 function parseCsvRows(content: string): CsvRow[] {
@@ -96,30 +111,94 @@ function recordKey(record: DnsImportRecord): string {
     ].join('\u0000');
 }
 
+function normalizeStatus(value: string): 'Enable' | 'Disable' | null {
+    const normalized = value.trim().toLowerCase();
+    if (!normalized || normalized === 'enable' || normalized === 'enabled' || normalized === '正常') {
+        return 'Enable';
+    }
+    if (normalized === 'disable' || normalized === 'disabled' || normalized === '已暂停') {
+        return 'Disable';
+    }
+    return null;
+}
+
 function hasHeader(values: string[]): boolean {
     const first = values[0]?.replace(/^\uFEFF/, '').trim().toLowerCase();
     return first === '主机记录' || first === 'rr';
 }
 
-export function createDnsImportPreview(content: string, existingRecords: DnsRecord[]): DnsImportPreview {
-    const rows = parseCsvRows(content);
+function parseDomainBackup(content: string, expectedDomain?: string): CsvRow[] | null {
+    const trimmed = content.replace(/^\uFEFF/, '').trim();
+    if (!trimmed.startsWith('{')) return null;
+
+    const backup = JSON.parse(trimmed) as Partial<DomainBackup>;
+    if (
+        backup.format !== 'aliyun-dns-manager-domain-backup' ||
+        backup.version !== 1 ||
+        typeof backup.domain !== 'string' ||
+        !Array.isArray(backup.records)
+    ) {
+        throw new Error('不是有效的阿里云 DNS 管理器域名备份');
+    }
+
+    if (expectedDomain && backup.domain.toLowerCase() !== expectedDomain.toLowerCase()) {
+        throw new Error(`备份属于 ${backup.domain}，不能导入到 ${expectedDomain}`);
+    }
+
+    return backup.records.map((record, index) => ({
+        line: index + 1,
+        values: [
+            String(record?.rr ?? ''),
+            String(record?.type ?? ''),
+            String(record?.value ?? ''),
+            String(record?.ttl ?? ''),
+            String(record?.status ?? ''),
+        ],
+    }));
+}
+
+export function createDomainBackup(domain: string, records: DnsRecord[]): DomainBackup {
+    return {
+        format: 'aliyun-dns-manager-domain-backup',
+        version: 1,
+        domain,
+        createdAt: new Date().toISOString(),
+        records: records.map(record => ({
+            rr: record.RR,
+            type: record.Type,
+            value: record.Value,
+            ttl: record.TTL,
+            status: record.Status?.toUpperCase() === 'DISABLE' ? 'Disable' : 'Enable',
+        })),
+    };
+}
+
+export function createDnsImportPreview(
+    content: string,
+    existingRecords: DnsRecord[],
+    expectedDomain?: string
+): DnsImportPreview {
+    const backupRows = parseDomainBackup(content, expectedDomain);
+    const rows = backupRows || parseCsvRows(content);
     const previewRows: DnsImportPreviewRow[] = [];
     const existingKeys = new Set(existingRecords.map(record => recordKey({
         rr: record.RR,
         type: record.Type,
         value: record.Value,
         ttl: record.TTL,
+        status: record.Status?.toUpperCase() === 'DISABLE' ? 'Disable' : 'Enable',
     })));
     const fileKeys = new Set<string>();
-    const startIndex = rows[0] && hasHeader(rows[0].values) ? 1 : 0;
+    const startIndex = !backupRows && rows[0] && hasHeader(rows[0].values) ? 1 : 0;
 
     for (const row of rows.slice(startIndex)) {
-        const [rawRr = '', rawType = '', rawValue = '', rawTtl = ''] = row.values;
+        const [rawRr = '', rawType = '', rawValue = '', rawTtl = '', rawStatus = ''] = row.values;
         const rr = rawRr.replace(/^\uFEFF/, '').trim();
         const type = rawType.trim().toUpperCase();
         const value = rawValue.trim();
         const ttlText = rawTtl.trim();
         const ttl = ttlText === '' ? 600 : Number(ttlText);
+        const status = normalizeStatus(rawStatus);
 
         if (!rr || !type || !value) {
             previewRows.push({
@@ -139,14 +218,23 @@ export function createDnsImportPreview(content: string, existingRecords: DnsReco
             continue;
         }
 
-        const record = { rr, type, value, ttl };
+        if (!status) {
+            previewRows.push({
+                line: row.line,
+                status: 'error',
+                reason: '状态必须是 Enable 或 Disable',
+            });
+            continue;
+        }
+
+        const record = { rr, type, value, ttl, status };
         const key = recordKey(record);
 
         if (existingKeys.has(key)) {
             previewRows.push({
                 line: row.line,
                 status: 'skip',
-                reason: '与当前域名中的记录完全相同',
+                reason: '当前域名已存在相同的主机记录、类型、记录值和 TTL',
                 record,
             });
             continue;

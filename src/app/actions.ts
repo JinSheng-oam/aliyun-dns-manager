@@ -27,7 +27,7 @@ import { createAppDataBackup, parseAndValidateBackup, restoreAppDataBackup } fro
 type BatchOperationError = {
     error: string;
     id?: string;
-    record?: { rr: string; type: string; value: string; ttl: number };
+    record?: { rr: string; type: string; value: string; ttl: number; status?: 'Enable' | 'Disable' };
 };
 
 function getRequestIp(forwardedFor: string | null): string {
@@ -307,15 +307,47 @@ export async function batchSetDnsRecordsStatusAction(keyId: string, recordIds: s
     }
 }
 
-export async function batchAddDnsRecordsAction(keyId: string, domain: string, records: { rr: string, type: string, value: string, ttl: number }[]) {
+export async function batchAddDnsRecordsAction(
+    keyId: string,
+    domain: string,
+    records: { rr: string; type: string; value: string; ttl: number; status?: 'Enable' | 'Disable' }[]
+) {
     try {
         const key = await getAccessKeyById(keyId);
         if (!key) throw new Error('Access Key not found');
 
-        const promises = records.map(record =>
-            AliyunDnsClient.addRecord(key.accessKeyId, key.accessKeySecret, domain, record.rr, record.type, record.value, record.ttl)
-                .catch(error => ({ error: getErrorMessage(error, 'Failed to add DNS record'), record }))
-        );
+        const promises = records.map(async record => {
+            try {
+                const recordId = await AliyunDnsClient.addRecord(
+                    key.accessKeyId,
+                    key.accessKeySecret,
+                    domain,
+                    record.rr,
+                    record.type,
+                    record.value,
+                    record.ttl
+                );
+                if (record.status === 'Disable') {
+                    try {
+                        await AliyunDnsClient.setRecordStatus(
+                            key.accessKeyId,
+                            key.accessKeySecret,
+                            recordId,
+                            'Disable'
+                        );
+                    } catch (error) {
+                        await AliyunDnsClient.deleteRecord(
+                            key.accessKeyId,
+                            key.accessKeySecret,
+                            recordId
+                        ).catch(() => undefined);
+                        throw error;
+                    }
+                }
+            } catch (error) {
+                return { error: getErrorMessage(error, 'Failed to add DNS record'), record };
+            }
+        });
 
         const results = await Promise.all(promises);
         const errors = results.filter(isBatchOperationError);

@@ -21,6 +21,7 @@ You can use it to:
 - add, edit, enable, disable, and delete DNS records
 - batch delete or batch change record status
 - import and export DNS records as CSV, with a preview of additions, skipped rows, and errors
+- export a complete, re-importable JSON backup for each domain
 - protect the admin panel with password login
 - check password, session signing, local encryption, and HTTPS cookie configuration
 - search, filter, and export operation logs
@@ -130,6 +131,16 @@ After selecting a domain on the DNS management page, upload a CSV file to review
 - "Error" rows are missing required fields or contain an invalid TTL
 
 Only rows marked for addition are sent to Alibaba Cloud after confirmation. Closing the preview does not change DNS records.
+
+## Complete domain backup
+
+After selecting a domain on the DNS management page, use **Export complete domain backup** to download a JSON backup containing:
+
+- the domain name and export time
+- host records, record types, values, and TTL values
+- the enabled or disabled state of every record
+
+To restore it, select the JSON file with the same import button. The app verifies that the backup belongs to the selected domain, shows an import preview, and restores disabled states after creating the records. A backup cannot be imported into a different domain.
 
 ## Data Backup and Restore
 

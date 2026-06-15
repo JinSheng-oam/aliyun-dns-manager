@@ -56,14 +56,17 @@ async function testLogCsvExport() {
 }
 
 async function testDnsImportPreview() {
-    const { createDnsImportPreview } = await jiti.import(path.join(projectRoot, 'src/lib/dns-import.ts'));
+    const { createDnsImportPreview, createDomainBackup } = await jiti.import(
+        path.join(projectRoot, 'src/lib/dns-import.ts')
+    );
     const preview = createDnsImportPreview(
         '\uFEFF主机记录,记录类型,记录值,TTL,状态\r\n' +
         'www,A,1.1.1.1,600,Enable\r\n' +
         'api,CNAME,"target,with-comma.example.com",600,Enable\r\n' +
         'api,CNAME,"target,with-comma.example.com",600,Enable\r\n' +
         'bad,A,2.2.2.2,not-a-number,Enable\r\n' +
-        ',TXT,missing.example.com,600,Enable',
+        ',TXT,missing.example.com,600,Enable\r\n' +
+        'invalid-status,A,3.3.3.3,600,Unknown',
         [{
             RecordId: '1',
             RR: 'www',
@@ -75,12 +78,34 @@ async function testDnsImportPreview() {
         }]
     );
 
-    assert.deepEqual(preview.summary, { add: 1, skip: 2, error: 2 });
+    assert.deepEqual(preview.summary, { add: 1, skip: 2, error: 3 });
     assert.equal(preview.rows[0].status, 'skip', 'Existing records must be skipped');
     assert.equal(preview.rows[1].record.value, 'target,with-comma.example.com');
     assert.equal(preview.rows[2].reason, '与文件中前面的记录重复');
     assert.equal(preview.rows[3].status, 'error', 'Invalid TTL values must be rejected');
     assert.equal(preview.rows[4].status, 'error', 'Required fields must be validated');
+    assert.equal(preview.rows[5].status, 'error', 'Invalid record status must be rejected');
+
+    const domainRecords = [{
+        RecordId: '2',
+        RR: 'paused',
+        Type: 'TXT',
+        Value: 'backup-value',
+        TTL: 3600,
+        DomainName: 'example.com',
+        Status: 'Disable',
+    }];
+    const backup = createDomainBackup('example.com', domainRecords);
+    const backupPreview = createDnsImportPreview(JSON.stringify(backup), [], 'example.com');
+
+    assert.equal(backup.format, 'aliyun-dns-manager-domain-backup');
+    assert.equal(backup.records[0].status, 'Disable', 'Backups must preserve paused record status');
+    assert.equal(backupPreview.rows[0].record.status, 'Disable', 'Backup imports must restore record status');
+    assert.throws(
+        () => createDnsImportPreview(JSON.stringify(backup), [], 'other.example.com'),
+        /不能导入/,
+        'Backups must not be imported into a different domain'
+    );
 }
 
 async function silenceExpectedConsoleError(callback) {
