@@ -12,6 +12,27 @@ export interface LogEntry {
     details: string;
     status: 'success' | 'failure';
     error?: string;
+    context?: DnsChangeContext;
+}
+
+export type DnsChangeOperation = 'add' | 'update' | 'delete' | 'status' | 'batch-add' | 'batch-delete' | 'batch-status';
+
+export interface DnsChangeRecord {
+    recordId?: string;
+    rr: string;
+    type: string;
+    value: string;
+    ttl: number;
+    status?: 'Enable' | 'Disable';
+}
+
+export interface DnsChangeContext {
+    category: 'dns-change';
+    domain: string;
+    operation: DnsChangeOperation;
+    records: DnsChangeRecord[];
+    before?: DnsChangeRecord;
+    after?: DnsChangeRecord;
 }
 
 async function ensureLogFile() {
@@ -28,7 +49,8 @@ export async function logOperation(
     details: string,
     status: 'success' | 'failure',
     ip?: string,
-    error?: string
+    error?: string,
+    context?: DnsChangeContext
 ) {
     try {
         await ensureLogFile();
@@ -47,7 +69,8 @@ export async function logOperation(
             action,
             details,
             status,
-            error
+            error,
+            context,
         };
 
         // Add to beginning, keep last 1000 logs
@@ -70,4 +93,12 @@ export async function getLogs(): Promise<LogEntry[]> {
     } catch {
         return [];
     }
+}
+
+export function filterDnsChangeLogs(logs: LogEntry[], domain: string): LogEntry[] {
+    const normalizedDomain = domain.trim().toLowerCase();
+    return logs.filter(log =>
+        log.context?.category === 'dns-change' &&
+        log.context.domain.trim().toLowerCase() === normalizedDomain
+    );
 }

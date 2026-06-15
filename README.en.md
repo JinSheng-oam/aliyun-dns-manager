@@ -22,6 +22,7 @@ You can use it to:
 - batch delete or batch change record status
 - import and export DNS records as CSV, with a preview of additions, skipped rows, and errors
 - export a complete, re-importable JSON backup for each domain
+- view add, update, delete, and status-change history for the selected domain
 - protect the admin panel with password login
 - check password, session signing, local encryption, and HTTPS cookie configuration
 - search, filter, and export operation logs
@@ -141,6 +142,12 @@ After selecting a domain on the DNS management page, use **Export complete domai
 - the enabled or disabled state of every record
 
 To restore it, select the JSON file with the same import button. The app verifies that the backup belongs to the selected domain, shows an import preview, and restores disabled states after creating the records. A backup cannot be imported into a different domain.
+
+## DNS change history
+
+After selecting a domain, use **View DNS change history** above the record list to review additions, updates, deletions, status changes, and batch operations for that domain.
+
+Structured per-domain history starts after upgrading to a version that supports it. Earlier operations remain available in **Operation Logs**, but cannot be classified by domain automatically.
 
 ## Data Backup and Restore
 

@@ -18,7 +18,9 @@ import { Input } from '@/components/ui/Input';
 import { Plus, Trash2, ArrowUpDown, ChevronUp, ChevronDown, Filter, Globe, ArrowLeft, Loader2, Edit2, PlayCircle, PauseCircle, X, Copy, History, Download, UploadCloud, AlertTriangle, CheckCircle2, FileSpreadsheet, Archive } from 'lucide-react';
 import { useToast } from '@/components/ui/Toast';
 import { LogsViewer } from '@/components/LogsViewer';
+import { DnsHistoryViewer } from '@/components/DnsHistoryViewer';
 import { createDnsImportPreview, createDomainBackup, type DnsImportPreview } from '@/lib/dns-import';
+import type { DnsChangeRecord } from '@/lib/logger';
 
 interface DnsManagerProps {
     initialKeys: AccessKey[];
@@ -66,6 +68,16 @@ export function DnsManager({ initialKeys }: DnsManagerProps) {
 
     // Logs
     const [isLogsOpen, setIsLogsOpen] = useState(false);
+    const [isHistoryOpen, setIsHistoryOpen] = useState(false);
+
+    const toChangeRecord = (record: DnsRecord): DnsChangeRecord => ({
+        recordId: record.RecordId,
+        rr: record.RR,
+        type: record.Type,
+        value: record.Value,
+        ttl: record.TTL,
+        status: isRecordEnabled(record.Status) ? 'Enable' : 'Disable',
+    });
 
     const refreshRecords = useCallback(async () => {
         if (!selectedKeyId || !selectedDomain) return;
@@ -90,6 +102,7 @@ export function DnsManager({ initialKeys }: DnsManagerProps) {
         setRecords([]);
         setImportPreview(null);
         setImportFileName('');
+        setIsHistoryOpen(false);
 
         const res = await listDomainsAction(selectedKeyId);
         if (res.success) {
@@ -130,6 +143,7 @@ export function DnsManager({ initialKeys }: DnsManagerProps) {
         setTypeFilter('All');
         setImportPreview(null);
         setImportFileName('');
+        setIsHistoryOpen(false);
         resetForm();
     };
 
@@ -165,7 +179,7 @@ export function DnsManager({ initialKeys }: DnsManagerProps) {
 
         let res;
         if (editingRecord) {
-            res = await updateDnsRecordAction(selectedKeyId, editingRecord.RecordId, rr, type, value, ttl);
+            res = await updateDnsRecordAction(selectedKeyId, selectedDomain.domainName, toChangeRecord(editingRecord), rr, type, value, ttl);
         } else {
             res = await addDnsRecordAction(selectedKeyId, selectedDomain.domainName, rr, type, value, ttl);
         }
@@ -180,9 +194,10 @@ export function DnsManager({ initialKeys }: DnsManagerProps) {
         setIsSubmitting(false);
     };
 
-    const handleDeleteRecord = async (recordId: string) => {
+    const handleDeleteRecord = async (record: DnsRecord) => {
         if (!confirm('确定删除这条解析记录吗？此操作不可逆！')) return;
-        const res = await deleteDnsRecordAction(selectedKeyId, recordId);
+        if (!selectedDomain) return;
+        const res = await deleteDnsRecordAction(selectedKeyId, selectedDomain.domainName, toChangeRecord(record));
         if (res.success) {
             toast.success('删除解析记录成功');
             // 阿里云 API 删除后可能有极短延迟，等待 1 秒后再刷新以确保数据准确
@@ -199,7 +214,8 @@ export function DnsManager({ initialKeys }: DnsManagerProps) {
         const newStatus = currentlyEnabled ? 'Disable' : 'Enable';
         const actionText = currentlyEnabled ? '暂停' : '启用';
 
-        const res = await setDnsRecordStatusAction(selectedKeyId, record.RecordId, newStatus);
+        if (!selectedDomain) return;
+        const res = await setDnsRecordStatusAction(selectedKeyId, selectedDomain.domainName, toChangeRecord(record), newStatus);
 
         if (res.success) {
             setRecords(prev => prev.map(r =>
@@ -241,7 +257,9 @@ export function DnsManager({ initialKeys }: DnsManagerProps) {
 
     const handleBatchDelete = async () => {
         if (!confirm(`确定删除选中的 ${selectedRecordIds.size} 条记录吗？`)) return;
-        const res = await batchDeleteDnsRecordsAction(selectedKeyId, Array.from(selectedRecordIds));
+        if (!selectedDomain) return;
+        const selectedRecords = records.filter(record => selectedRecordIds.has(record.RecordId)).map(toChangeRecord);
+        const res = await batchDeleteDnsRecordsAction(selectedKeyId, selectedDomain.domainName, selectedRecords);
         if (res.success) {
             toast.success('批量删除成功');
             setTimeout(async () => {
@@ -254,7 +272,9 @@ export function DnsManager({ initialKeys }: DnsManagerProps) {
 
     const handleBatchStatus = async (status: 'Enable' | 'Disable') => {
         const actionText = status === 'Enable' ? '启用' : '暂停';
-        const res = await batchSetDnsRecordsStatusAction(selectedKeyId, Array.from(selectedRecordIds), status);
+        if (!selectedDomain) return;
+        const selectedRecords = records.filter(record => selectedRecordIds.has(record.RecordId)).map(toChangeRecord);
+        const res = await batchSetDnsRecordsStatusAction(selectedKeyId, selectedDomain.domainName, selectedRecords, status);
         if (res.success) {
             toast.success(`批量${actionText}成功`);
             setTimeout(async () => {
@@ -508,6 +528,9 @@ export function DnsManager({ initialKeys }: DnsManagerProps) {
                                 </Button>
                                 <Button variant="ghost" size="icon" onClick={handleImportClick} title="导入 CSV">
                                     <UploadCloud className="h-5 w-5" />
+                                </Button>
+                                <Button variant="ghost" size="icon" onClick={() => setIsHistoryOpen(true)} title="查看 DNS 变更历史">
+                                    <History className="h-5 w-5" />
                                 </Button>
                                 {!isFormOpen && (
                                     <Button variant="secondary" onClick={handleInitAdd}>
@@ -851,7 +874,7 @@ export function DnsManager({ initialKeys }: DnsManagerProps) {
                                                     </button>
 
                                                     <button
-                                                        onClick={() => handleDeleteRecord(record.RecordId)}
+                                                        onClick={() => handleDeleteRecord(record)}
                                                         className="p-2 rounded text-gray-500 hover:text-red-400 hover:bg-red-500/10 transition-colors"
                                                         title="删除"
                                                     >
@@ -877,6 +900,13 @@ export function DnsManager({ initialKeys }: DnsManagerProps) {
 
             {/* Logs Viewer */}
             <LogsViewer isOpen={isLogsOpen} onClose={() => setIsLogsOpen(false)} />
+            {selectedDomain && (
+                <DnsHistoryViewer
+                    domain={selectedDomain.domainName}
+                    isOpen={isHistoryOpen}
+                    onClose={() => setIsHistoryOpen(false)}
+                />
+            )}
         </div>
     );
 }

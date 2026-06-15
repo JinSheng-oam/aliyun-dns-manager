@@ -12,7 +12,7 @@ import { AliyunDnsClient } from '@/lib/aliyun-dns';
 import { AccessKey } from '@/lib/types';
 import { revalidatePath } from 'next/cache';
 import { cookies, headers } from 'next/headers';
-import { logOperation, getLogs } from '@/lib/logger';
+import { filterDnsChangeLogs, logOperation, getLogs, type DnsChangeContext, type DnsChangeRecord } from '@/lib/logger';
 import { isRateLimited, recordLoginFailure, clearLoginFailures } from '@/lib/rate-limit';
 import {
     createAdminSessionToken,
@@ -36,6 +36,15 @@ function getRequestIp(forwardedFor: string | null): string {
 
 function isBatchOperationError(result: void | BatchOperationError): result is BatchOperationError {
     return Boolean(result && result.error);
+}
+
+function dnsChangeContext(
+    domain: string,
+    operation: DnsChangeContext['operation'],
+    records: DnsChangeRecord[],
+    extra?: Pick<DnsChangeContext, 'before' | 'after'>
+): DnsChangeContext {
+    return { category: 'dns-change', domain, operation, records, ...extra };
 }
 
 async function isCurrentAdminSessionValid(): Promise<boolean> {
@@ -171,86 +180,92 @@ export async function addDnsRecordAction(keyId: string, domain: string, rr: stri
         await AliyunDnsClient.addRecord(key.accessKeyId, key.accessKeySecret, domain, rr, type, value, ttl);
 
         const ip = getRequestIp((await headers()).get('x-forwarded-for'));
-        await logOperation('Add DNS Record', `Domain: ${domain}, RR: ${rr}, Type: ${type}, Value: ${value}`, 'success', ip);
+        const record = { rr, type, value, ttl, status: 'Enable' as const };
+        await logOperation('Add DNS Record', `Domain: ${domain}, RR: ${rr}, Type: ${type}, Value: ${value}`, 'success', ip, undefined, dnsChangeContext(domain, 'add', [record]));
 
         revalidatePath('/dns');
         return { success: true };
     } catch (error: unknown) {
         const ip = getRequestIp((await headers()).get('x-forwarded-for'));
         const message = getErrorMessage(error, 'Failed to add DNS record');
-        await logOperation('Add DNS Record', `Failed - Domain: ${domain}, RR: ${rr}`, 'failure', ip, message);
+        const record = { rr, type, value, ttl, status: 'Enable' as const };
+        await logOperation('Add DNS Record', `Failed - Domain: ${domain}, RR: ${rr}`, 'failure', ip, message, dnsChangeContext(domain, 'add', [record]));
         return { success: false, error: message };
     }
 }
 
-export async function updateDnsRecordAction(keyId: string, recordId: string, rr: string, type: string, value: string, ttl: number = 600) {
+export async function updateDnsRecordAction(keyId: string, domain: string, previous: DnsChangeRecord, rr: string, type: string, value: string, ttl: number = 600) {
     try {
         const key = await getAccessKeyById(keyId);
         if (!key) throw new Error('Access Key not found');
 
-        await AliyunDnsClient.updateRecord(key.accessKeyId, key.accessKeySecret, recordId, rr, type, value, ttl);
+        await AliyunDnsClient.updateRecord(key.accessKeyId, key.accessKeySecret, previous.recordId!, rr, type, value, ttl);
 
         const ip = getRequestIp((await headers()).get('x-forwarded-for'));
-        await logOperation('Update DNS Record', `RecordId: ${recordId}, RR: ${rr}, Type: ${type}, Value: ${value}`, 'success', ip);
+        const after = { ...previous, rr, type, value, ttl };
+        await logOperation('Update DNS Record', `RecordId: ${previous.recordId}, RR: ${rr}, Type: ${type}, Value: ${value}`, 'success', ip, undefined, dnsChangeContext(domain, 'update', [after], { before: previous, after }));
 
         revalidatePath('/dns');
         return { success: true };
     } catch (error: unknown) {
         const ip = getRequestIp((await headers()).get('x-forwarded-for'));
         const message = getErrorMessage(error, 'Failed to update DNS record');
-        await logOperation('Update DNS Record', `Failed - RecordId: ${recordId}`, 'failure', ip, message);
+        const after = { ...previous, rr, type, value, ttl };
+        await logOperation('Update DNS Record', `Failed - RecordId: ${previous.recordId}`, 'failure', ip, message, dnsChangeContext(domain, 'update', [after], { before: previous, after }));
         return { success: false, error: message };
     }
 }
 
-export async function deleteDnsRecordAction(keyId: string, recordId: string) {
+export async function deleteDnsRecordAction(keyId: string, domain: string, record: DnsChangeRecord) {
     try {
         const key = await getAccessKeyById(keyId);
         if (!key) throw new Error('Access Key not found');
 
-        await AliyunDnsClient.deleteRecord(key.accessKeyId, key.accessKeySecret, recordId);
+        await AliyunDnsClient.deleteRecord(key.accessKeyId, key.accessKeySecret, record.recordId!);
 
         const ip = getRequestIp((await headers()).get('x-forwarded-for'));
-        await logOperation('Delete DNS Record', `RecordId: ${recordId}`, 'success', ip);
+        await logOperation('Delete DNS Record', `RecordId: ${record.recordId}`, 'success', ip, undefined, dnsChangeContext(domain, 'delete', [record]));
 
         revalidatePath('/dns');
         return { success: true };
     } catch (error: unknown) {
         const ip = getRequestIp((await headers()).get('x-forwarded-for'));
         const message = getErrorMessage(error, 'Failed to delete DNS record');
-        await logOperation('Delete DNS Record', `Failed - RecordId: ${recordId}`, 'failure', ip, message);
+        await logOperation('Delete DNS Record', `Failed - RecordId: ${record.recordId}`, 'failure', ip, message, dnsChangeContext(domain, 'delete', [record]));
         return { success: false, error: message };
     }
 }
 
-export async function setDnsRecordStatusAction(keyId: string, recordId: string, status: 'Enable' | 'Disable') {
+export async function setDnsRecordStatusAction(keyId: string, domain: string, record: DnsChangeRecord, status: 'Enable' | 'Disable') {
     try {
         const key = await getAccessKeyById(keyId);
         if (!key) throw new Error('Access Key not found');
 
-        await AliyunDnsClient.setRecordStatus(key.accessKeyId, key.accessKeySecret, recordId, status);
+        await AliyunDnsClient.setRecordStatus(key.accessKeyId, key.accessKeySecret, record.recordId!, status);
 
         const ip = getRequestIp((await headers()).get('x-forwarded-for'));
-        await logOperation('Set DNS Status', `RecordId: ${recordId}, Status: ${status}`, 'success', ip);
+        const changedRecord = { ...record, status };
+        await logOperation('Set DNS Status', `RecordId: ${record.recordId}, Status: ${status}`, 'success', ip, undefined, dnsChangeContext(domain, 'status', [changedRecord]));
 
         revalidatePath('/dns');
         return { success: true };
     } catch (error: unknown) {
         const ip = getRequestIp((await headers()).get('x-forwarded-for'));
         const message = getErrorMessage(error, 'Failed to set DNS record status');
-        await logOperation('Set DNS Status', `Failed - RecordId: ${recordId}`, 'failure', ip, message);
+        const changedRecord = { ...record, status };
+        await logOperation('Set DNS Status', `Failed - RecordId: ${record.recordId}`, 'failure', ip, message, dnsChangeContext(domain, 'status', [changedRecord]));
         return { success: false, error: message };
     }
 }
 
-export async function batchDeleteDnsRecordsAction(keyId: string, recordIds: string[]) {
+export async function batchDeleteDnsRecordsAction(keyId: string, domain: string, records: DnsChangeRecord[]) {
     try {
         const key = await getAccessKeyById(keyId);
         if (!key) throw new Error('Access Key not found');
 
-        const promises = recordIds.map(id =>
-            AliyunDnsClient.deleteRecord(key.accessKeyId, key.accessKeySecret, id)
-                .catch(error => ({ error: getErrorMessage(error, 'Failed to delete DNS record'), id }))
+        const promises = records.map(record =>
+            AliyunDnsClient.deleteRecord(key.accessKeyId, key.accessKeySecret, record.recordId!)
+                .catch(error => ({ error: getErrorMessage(error, 'Failed to delete DNS record'), id: record.recordId }))
         );
 
         const results = await Promise.all(promises);
@@ -260,29 +275,29 @@ export async function batchDeleteDnsRecordsAction(keyId: string, recordIds: stri
 
         if (errors.length > 0) {
             const ip = getRequestIp((await headers()).get('x-forwarded-for'));
-            await logOperation('Batch Delete DNS', `Failed to delete ${errors.length}/${recordIds.length} records`, 'failure', ip, JSON.stringify(errors));
+            await logOperation('Batch Delete DNS', `Failed to delete ${errors.length}/${records.length} records`, 'failure', ip, JSON.stringify(errors), dnsChangeContext(domain, 'batch-delete', records));
             return { success: false, error: `部分删除失败: ${errors.length} 条记录未删除` };
         }
 
         const ip = getRequestIp((await headers()).get('x-forwarded-for'));
-        await logOperation('Batch Delete DNS', `Deleted ${recordIds.length} records`, 'success', ip);
+        await logOperation('Batch Delete DNS', `Deleted ${records.length} records`, 'success', ip, undefined, dnsChangeContext(domain, 'batch-delete', records));
         return { success: true };
     } catch (error: unknown) {
         const ip = getRequestIp((await headers()).get('x-forwarded-for'));
         const message = getErrorMessage(error, 'Failed to delete records');
-        await logOperation('Batch Delete DNS', `Failed to delete records`, 'failure', ip, message);
+        await logOperation('Batch Delete DNS', `Failed to delete records`, 'failure', ip, message, dnsChangeContext(domain, 'batch-delete', records));
         return { success: false, error: message };
     }
 }
 
-export async function batchSetDnsRecordsStatusAction(keyId: string, recordIds: string[], status: 'Enable' | 'Disable') {
+export async function batchSetDnsRecordsStatusAction(keyId: string, domain: string, records: DnsChangeRecord[], status: 'Enable' | 'Disable') {
     try {
         const key = await getAccessKeyById(keyId);
         if (!key) throw new Error('Access Key not found');
 
-        const promises = recordIds.map(id =>
-            AliyunDnsClient.setRecordStatus(key.accessKeyId, key.accessKeySecret, id, status)
-                .catch(error => ({ error: getErrorMessage(error, 'Failed to set DNS record status'), id }))
+        const promises = records.map(record =>
+            AliyunDnsClient.setRecordStatus(key.accessKeyId, key.accessKeySecret, record.recordId!, status)
+                .catch(error => ({ error: getErrorMessage(error, 'Failed to set DNS record status'), id: record.recordId }))
         );
 
         const results = await Promise.all(promises);
@@ -292,17 +307,20 @@ export async function batchSetDnsRecordsStatusAction(keyId: string, recordIds: s
 
         if (errors.length > 0) {
             const ip = getRequestIp((await headers()).get('x-forwarded-for'));
-            await logOperation('Batch Set Status', `Failed to set status ${status} for ${errors.length}/${recordIds.length} records`, 'failure', ip, JSON.stringify(errors));
+            const changedRecords = records.map(record => ({ ...record, status }));
+            await logOperation('Batch Set Status', `Failed to set status ${status} for ${errors.length}/${records.length} records`, 'failure', ip, JSON.stringify(errors), dnsChangeContext(domain, 'batch-status', changedRecords));
             return { success: false, error: `部分状态更新失败: ${errors.length} 条记录未更新` };
         }
 
         const ip = getRequestIp((await headers()).get('x-forwarded-for'));
-        await logOperation('Batch Set Status', `Set status ${status} for ${recordIds.length} records`, 'success', ip);
+        const changedRecords = records.map(record => ({ ...record, status }));
+        await logOperation('Batch Set Status', `Set status ${status} for ${records.length} records`, 'success', ip, undefined, dnsChangeContext(domain, 'batch-status', changedRecords));
         return { success: true };
     } catch (error: unknown) {
         const ip = getRequestIp((await headers()).get('x-forwarded-for'));
         const message = getErrorMessage(error, 'Failed to set status');
-        await logOperation('Batch Set Status', `Failed to set status`, 'failure', ip, message);
+        const changedRecords = records.map(record => ({ ...record, status }));
+        await logOperation('Batch Set Status', `Failed to set status`, 'failure', ip, message, dnsChangeContext(domain, 'batch-status', changedRecords));
         return { success: false, error: message };
     }
 }
@@ -356,17 +374,17 @@ export async function batchAddDnsRecordsAction(
 
         if (errors.length > 0) {
             const ip = getRequestIp((await headers()).get('x-forwarded-for'));
-            await logOperation('Batch Add DNS', `Failed to add ${errors.length}/${records.length} records`, 'failure', ip, JSON.stringify(errors));
+            await logOperation('Batch Add DNS', `Failed to add ${errors.length}/${records.length} records`, 'failure', ip, JSON.stringify(errors), dnsChangeContext(domain, 'batch-add', records));
             return { success: false, error: `部分添加失败: ${errors.length} 条记录未添加`, errors };
         }
 
         const ip = getRequestIp((await headers()).get('x-forwarded-for'));
-        await logOperation('Batch Add DNS', `Added ${records.length} records`, 'success', ip);
+        await logOperation('Batch Add DNS', `Added ${records.length} records`, 'success', ip, undefined, dnsChangeContext(domain, 'batch-add', records));
         return { success: true };
     } catch (error: unknown) {
         const ip = getRequestIp((await headers()).get('x-forwarded-for'));
         const message = getErrorMessage(error, 'Failed to add records');
-        await logOperation('Batch Add DNS', `Failed to add records`, 'failure', ip, message);
+        await logOperation('Batch Add DNS', `Failed to add records`, 'failure', ip, message, dnsChangeContext(domain, 'batch-add', records));
         return { success: false, error: message };
     }
 }
@@ -379,6 +397,14 @@ export async function getLogsAction() {
         return { success: true, data: logs };
     } catch {
         return { success: false, error: 'Failed to fetch logs' };
+    }
+}
+
+export async function getDnsHistoryAction(domain: string) {
+    try {
+        return { success: true, data: filterDnsChangeLogs(await getLogs(), domain) };
+    } catch {
+        return { success: false, error: '读取 DNS 变更历史失败' };
     }
 }
 

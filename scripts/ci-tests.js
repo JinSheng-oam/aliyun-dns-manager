@@ -55,6 +55,49 @@ async function testLogCsvExport() {
     assert.equal(csv.split('\r\n').length, 2, 'CSV must contain one header and one data row');
 }
 
+async function testDnsHistoryFiltering() {
+    const { filterDnsChangeLogs } = await jiti.import(path.join(projectRoot, 'src/lib/logger.ts'));
+    const logs = [
+        {
+            id: '1',
+            timestamp: '2026-06-15T00:00:00.000Z',
+            action: 'Add DNS Record',
+            details: 'new structured log',
+            status: 'success',
+            context: {
+                category: 'dns-change',
+                domain: 'Example.com',
+                operation: 'add',
+                records: [],
+            },
+        },
+        {
+            id: '2',
+            timestamp: '2026-06-15T00:01:00.000Z',
+            action: 'Add DNS Record',
+            details: 'other domain',
+            status: 'success',
+            context: {
+                category: 'dns-change',
+                domain: 'other.example.com',
+                operation: 'add',
+                records: [],
+            },
+        },
+        {
+            id: '3',
+            timestamp: '2026-06-15T00:02:00.000Z',
+            action: 'Add DNS Record',
+            details: 'Domain: example.com',
+            status: 'success',
+        },
+    ];
+
+    const history = filterDnsChangeLogs(logs, 'example.com');
+    assert.equal(history.length, 1, 'History must use structured domain metadata only');
+    assert.equal(history[0].id, '1', 'Domain matching must be case-insensitive');
+}
+
 async function testDnsImportPreview() {
     const { createDnsImportPreview, createDomainBackup } = await jiti.import(
         path.join(projectRoot, 'src/lib/dns-import.ts')
@@ -227,6 +270,7 @@ async function main() {
     const tests = [
         ['session invalidation', testSessionInvalidation],
         ['log CSV export', testLogCsvExport],
+        ['DNS history filtering', testDnsHistoryFiltering],
         ['DNS import preview', testDnsImportPreview],
         ['AccessKey and backup safety', testAccessKeyAndBackupSafety],
     ];
