@@ -17,7 +17,7 @@ You can use it to:
 
 - store and manage multiple Aliyun AccessKeys locally
 - browse all domains under a selected account
-- view, search, filter, and sort DNS records
+- view, search, sort, and filter DNS records by type, status, and TTL range
 - add, edit, enable, disable, and delete DNS records
 - batch delete or batch change record status
 - import and export DNS records as CSV, with a preview of additions, skipped rows, and errors
@@ -148,6 +148,17 @@ To restore it, select the JSON file with the same import button. The app verifie
 After selecting a domain, use **View DNS change history** above the record list to review additions, updates, deletions, status changes, and batch operations for that domain.
 
 Structured per-domain history starts after upgrading to a version that supports it. Earlier operations remain available in **Operation Logs**, but cannot be classified by domain automatically.
+
+## DNS record filters
+
+The record list supports combining the following filters:
+
+- host record or value keyword
+- record type
+- enabled or disabled status
+- inclusive minimum and maximum TTL values
+
+Leave a TTL field empty for no limit. Use **Reset filters** to clear every condition at once.
 
 ## Data Backup and Restore
 

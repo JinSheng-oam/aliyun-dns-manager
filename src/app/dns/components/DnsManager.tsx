@@ -21,6 +21,7 @@ import { LogsViewer } from '@/components/LogsViewer';
 import { DnsHistoryViewer } from '@/components/DnsHistoryViewer';
 import { createDnsImportPreview, createDomainBackup, type DnsImportPreview } from '@/lib/dns-import';
 import type { DnsChangeRecord } from '@/lib/logger';
+import { filterDnsRecords, type DnsStatusFilter } from '@/lib/dns-filter';
 
 interface DnsManagerProps {
     initialKeys: AccessKey[];
@@ -53,6 +54,9 @@ export function DnsManager({ initialKeys }: DnsManagerProps) {
     // Filter & Sort
     const [searchTerm, setSearchTerm] = useState('');
     const [typeFilter, setTypeFilter] = useState('All');
+    const [statusFilter, setStatusFilter] = useState<DnsStatusFilter>('All');
+    const [minTtlFilter, setMinTtlFilter] = useState('');
+    const [maxTtlFilter, setMaxTtlFilter] = useState('');
     const [sortConfig, setSortConfig] = useState<{ key: SortKey; direction: 'asc' | 'desc' } | null>(null);
 
     // Form
@@ -141,6 +145,9 @@ export function DnsManager({ initialKeys }: DnsManagerProps) {
         setRecords([]);
         setSearchTerm('');
         setTypeFilter('All');
+        setStatusFilter('All');
+        setMinTtlFilter('');
+        setMaxTtlFilter('');
         setImportPreview(null);
         setImportFileName('');
         setIsHistoryOpen(false);
@@ -391,14 +398,13 @@ export function DnsManager({ initialKeys }: DnsManagerProps) {
     };
 
     // --- Derived State ---
-    const filteredAndSortedRecords = records
-        .filter(record => {
-            const matchesSearch =
-                record.RR.toLowerCase().includes(searchTerm.toLowerCase()) ||
-                record.Value.toLowerCase().includes(searchTerm.toLowerCase());
-            const matchesType = typeFilter === 'All' || record.Type === typeFilter;
-            return matchesSearch && matchesType;
-        })
+    const filteredAndSortedRecords = filterDnsRecords(records, {
+        searchTerm,
+        type: typeFilter,
+        status: statusFilter,
+        minTtl: minTtlFilter,
+        maxTtl: maxTtlFilter,
+    })
         .sort((a, b) => {
             if (!sortConfig) return 0;
             const { key, direction } = sortConfig;
@@ -689,7 +695,7 @@ export function DnsManager({ initialKeys }: DnsManagerProps) {
                         )}
 
                         {/* Filters */}
-                        <div className="glass p-4 rounded-xl flex flex-wrap gap-4 items-center">
+                        <div className="glass p-4 rounded-xl flex flex-wrap gap-3 items-center">
                             <div className="flex items-center gap-2 text-gray-400 min-w-fit">
                                 <Filter className="h-4 w-4" />
                                 <span className="text-xs font-medium uppercase tracking-wider">筛选</span>
@@ -715,9 +721,51 @@ export function DnsManager({ initialKeys }: DnsManagerProps) {
                                     ))}
                                 </select>
                             </div>
-                            {(searchTerm || typeFilter !== 'All') && (
+                            <div className="w-32">
+                                <select
+                                    aria-label="筛选记录状态"
+                                    className="w-full bg-black/20 border border-white/5 rounded-lg px-3 py-1.5 text-sm text-white focus:outline-none focus:ring-1 focus:ring-blue-500/50"
+                                    value={statusFilter}
+                                    onChange={(e) => setStatusFilter(e.target.value as DnsStatusFilter)}
+                                >
+                                    <option value="All">全部状态</option>
+                                    <option value="Enable">仅正常</option>
+                                    <option value="Disable">仅暂停</option>
+                                </select>
+                            </div>
+                            <label className="relative w-28">
+                                <span className="sr-only">最小 TTL</span>
+                                <input
+                                    type="number"
+                                    min="0"
+                                    inputMode="numeric"
+                                    placeholder="TTL ≥"
+                                    value={minTtlFilter}
+                                    onChange={(e) => setMinTtlFilter(e.target.value)}
+                                    className="w-full bg-black/20 border border-white/5 rounded-lg px-3 py-1.5 text-sm text-white focus:outline-none focus:ring-1 focus:ring-blue-500/50 placeholder:text-gray-600"
+                                />
+                            </label>
+                            <label className="relative w-28">
+                                <span className="sr-only">最大 TTL</span>
+                                <input
+                                    type="number"
+                                    min="0"
+                                    inputMode="numeric"
+                                    placeholder="TTL ≤"
+                                    value={maxTtlFilter}
+                                    onChange={(e) => setMaxTtlFilter(e.target.value)}
+                                    className="w-full bg-black/20 border border-white/5 rounded-lg px-3 py-1.5 text-sm text-white focus:outline-none focus:ring-1 focus:ring-blue-500/50 placeholder:text-gray-600"
+                                />
+                            </label>
+                            {(searchTerm || typeFilter !== 'All' || statusFilter !== 'All' || minTtlFilter || maxTtlFilter) && (
                                 <button
-                                    onClick={() => { setSearchTerm(''); setTypeFilter('All'); }}
+                                    onClick={() => {
+                                        setSearchTerm('');
+                                        setTypeFilter('All');
+                                        setStatusFilter('All');
+                                        setMinTtlFilter('');
+                                        setMaxTtlFilter('');
+                                    }}
                                     className="text-xs text-blue-400 hover:text-blue-300 transition-colors"
                                 >
                                     重置筛选

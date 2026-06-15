@@ -98,6 +98,73 @@ async function testDnsHistoryFiltering() {
     assert.equal(history[0].id, '1', 'Domain matching must be case-insensitive');
 }
 
+async function testDnsRecordFiltering() {
+    const { filterDnsRecords } = await jiti.import(path.join(projectRoot, 'src/lib/dns-filter.ts'));
+    const records = [
+        {
+            RecordId: '1',
+            RR: 'www',
+            Type: 'A',
+            Value: '1.1.1.1',
+            TTL: 600,
+            DomainName: 'example.com',
+            Status: 'Enable',
+        },
+        {
+            RecordId: '2',
+            RR: 'api',
+            Type: 'CNAME',
+            Value: 'target.example.com',
+            TTL: 3600,
+            DomainName: 'example.com',
+            Status: 'Disable',
+        },
+        {
+            RecordId: '3',
+            RR: 'mail',
+            Type: 'A',
+            Value: '2.2.2.2',
+            TTL: 86400,
+            DomainName: 'example.com',
+            Status: 'Enable',
+        },
+    ];
+
+    assert.deepEqual(
+        filterDnsRecords(records, {
+            searchTerm: '',
+            type: 'All',
+            status: 'Disable',
+            minTtl: '600',
+            maxTtl: '3600',
+        }).map(record => record.RecordId),
+        ['2'],
+        'Status and inclusive TTL boundaries must be combined'
+    );
+    assert.deepEqual(
+        filterDnsRecords(records, {
+            searchTerm: 'MAIL',
+            type: 'A',
+            status: 'All',
+            minTtl: '',
+            maxTtl: '',
+        }).map(record => record.RecordId),
+        ['3'],
+        'Search must remain case-insensitive and combine with record type'
+    );
+    assert.equal(
+        filterDnsRecords(records, {
+            searchTerm: '',
+            type: 'All',
+            status: 'All',
+            minTtl: '4000',
+            maxTtl: '1000',
+        }).length,
+        0,
+        'An inverted TTL range must not be silently swapped'
+    );
+}
+
 async function testDnsImportPreview() {
     const { createDnsImportPreview, createDomainBackup } = await jiti.import(
         path.join(projectRoot, 'src/lib/dns-import.ts')
@@ -271,6 +338,7 @@ async function main() {
         ['session invalidation', testSessionInvalidation],
         ['log CSV export', testLogCsvExport],
         ['DNS history filtering', testDnsHistoryFiltering],
+        ['DNS record filtering', testDnsRecordFiltering],
         ['DNS import preview', testDnsImportPreview],
         ['AccessKey and backup safety', testAccessKeyAndBackupSafety],
     ];
