@@ -1,6 +1,6 @@
 'use client';
 
-import React, { createContext, useContext, useState, useCallback, useSyncExternalStore } from 'react';
+import React, { createContext, useContext, useState, useCallback, useMemo, useSyncExternalStore } from 'react';
 import { AnimatePresence, motion } from 'framer-motion';
 import { X, CheckCircle, AlertCircle, Info } from 'lucide-react';
 import { createPortal } from 'react-dom';
@@ -43,9 +43,13 @@ export function ToastProvider({ children }: { children: React.ReactNode }) {
     const success = useCallback((message: string) => addToast(message, 'success'), [addToast]);
     const error = useCallback((message: string) => addToast(message, 'error'), [addToast]);
     const info = useCallback((message: string) => addToast(message, 'info'), [addToast]);
+    const contextValue = useMemo(
+        () => ({ addToast, success, error, info }),
+        [addToast, success, error, info]
+    );
 
     return (
-        <ToastContext.Provider value={{ addToast, success, error, info }}>
+        <ToastContext.Provider value={contextValue}>
             {children}
             {isMounted && createPortal(
                 <div className="fixed top-4 right-4 z-[100] flex flex-col gap-2 pointer-events-none">

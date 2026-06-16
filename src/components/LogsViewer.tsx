@@ -5,6 +5,7 @@ import type { LogEntry } from '@/lib/logger';
 import { getLogsAction } from '@/app/actions';
 import { X, Loader2, RotateCw, Download, Search } from 'lucide-react';
 import { Button } from '@/components/ui/Button';
+import { Select } from '@/components/ui/Select';
 import { createLogsCsv } from '@/lib/log-export';
 
 interface LogsViewerProps {
@@ -108,21 +109,20 @@ export function LogsViewer({ isOpen, onClose }: LogsViewerProps) {
                             value={searchTerm}
                             onChange={(event) => setSearchTerm(event.target.value)}
                             placeholder="搜索操作、IP、详情或错误"
-                            className="h-10 w-full rounded-lg border border-white/10 bg-black/20 pl-10 pr-3 text-sm text-white placeholder:text-gray-500 focus:border-blue-500/50 focus:outline-none focus:ring-2 focus:ring-blue-500/50"
+                            className="field-control h-10 pl-10 pr-3 text-sm"
                         />
                     </label>
-                    <label>
-                        <span className="sr-only">筛选日志状态</span>
-                        <select
-                            value={statusFilter}
-                            onChange={(event) => setStatusFilter(event.target.value as StatusFilter)}
-                            className="h-10 w-full rounded-lg border border-white/10 bg-[#151927] px-3 text-sm text-white focus:border-blue-500/50 focus:outline-none focus:ring-2 focus:ring-blue-500/50 sm:w-36"
-                        >
-                            <option value="all">全部状态</option>
-                            <option value="success">仅成功</option>
-                            <option value="failure">仅失败</option>
-                        </select>
-                    </label>
+                    <Select
+                        ariaLabel="筛选日志状态"
+                        className="sm:w-36"
+                        value={statusFilter}
+                        onValueChange={(nextValue) => setStatusFilter(nextValue as StatusFilter)}
+                        options={[
+                            { value: 'all', label: '全部状态' },
+                            { value: 'success', label: '仅成功' },
+                            { value: 'failure', label: '仅失败' },
+                        ]}
+                    />
                 </div>
 
                 <div className="flex-1 overflow-auto p-4 custom-scrollbar">

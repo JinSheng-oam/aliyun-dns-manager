@@ -3,6 +3,7 @@ import { Inter } from "next/font/google";
 import "./globals.css";
 import { LayoutWrapper } from "@/components/LayoutWrapper";
 import { ToastProvider } from "@/components/ui/Toast";
+import { ConfirmProvider } from "@/components/ui/ConfirmDialog";
 
 const inter = Inter({ subsets: ["latin"] });
 
@@ -21,7 +22,9 @@ export default function RootLayout({
       <body className={`${inter.className} min-h-screen bg-black/90 text-white selection:bg-blue-500/30`}>
         <div className="fixed inset-0 bg-[url('/grid.svg')] bg-center [mask-image:linear-gradient(180deg,white,rgba(255,255,255,0))] pointer-events-none opacity-20" />
         <ToastProvider>
-          <LayoutWrapper>{children}</LayoutWrapper>
+          <ConfirmProvider>
+            <LayoutWrapper>{children}</LayoutWrapper>
+          </ConfirmProvider>
         </ToastProvider>
       </body>
     </html>

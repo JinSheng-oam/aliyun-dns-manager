@@ -1,6 +1,6 @@
 'use client';
 
-import { useState, useEffect, useCallback, useRef } from 'react';
+import { useState, useEffect, useCallback, useRef, useEffectEvent } from 'react';
 import { AccessKey, DnsRecord, Domain } from '@/lib/types';
 import {
     listDomainsAction,
@@ -15,8 +15,10 @@ import {
 } from '@/app/actions';
 import { Button } from '@/components/ui/Button';
 import { Input } from '@/components/ui/Input';
+import { Select } from '@/components/ui/Select';
 import { Plus, Trash2, ArrowUpDown, ChevronUp, ChevronDown, Filter, Globe, ArrowLeft, Loader2, Edit2, PlayCircle, PauseCircle, X, Copy, History, Download, UploadCloud, AlertTriangle, CheckCircle2, FileSpreadsheet, Archive } from 'lucide-react';
 import { useToast } from '@/components/ui/Toast';
+import { useConfirm } from '@/components/ui/ConfirmDialog';
 import { LogsViewer } from '@/components/LogsViewer';
 import { DnsHistoryViewer } from '@/components/DnsHistoryViewer';
 import { createDnsImportPreview, createDomainBackup, type DnsImportPreview } from '@/lib/dns-import';
@@ -36,6 +38,7 @@ const isRecordEnabled = (status: string | undefined) => {
 
 export function DnsManager({ initialKeys }: DnsManagerProps) {
     const toast = useToast();
+    const confirm = useConfirm();
     const fileInputRef = useRef<HTMLInputElement>(null);
 
     // --- State ---
@@ -117,17 +120,18 @@ export function DnsManager({ initialKeys }: DnsManagerProps) {
         }
         setLoadingDomains(false);
     }, [selectedKeyId, toast]);
+    const fetchDomainsEvent = useEffectEvent(fetchDomains);
 
     // --- Effects ---
 
     useEffect(() => {
         if (!selectedKeyId) return;
         const timer = window.setTimeout(() => {
-            void fetchDomains();
+            void fetchDomainsEvent();
         }, 0);
 
         return () => window.clearTimeout(timer);
-    }, [selectedKeyId, fetchDomains]);
+    }, [selectedKeyId]);
 
     useEffect(() => {
         if (!selectedKeyId || !selectedDomain) return;
@@ -202,7 +206,14 @@ export function DnsManager({ initialKeys }: DnsManagerProps) {
     };
 
     const handleDeleteRecord = async (record: DnsRecord) => {
-        if (!confirm('确定删除这条解析记录吗？此操作不可逆！')) return;
+        const confirmed = await confirm({
+            title: '删除解析记录',
+            description: `确定删除 ${record.RR}.${selectedDomain?.domainName || ''} 这条解析记录吗？此操作不可逆。`,
+            confirmText: '删除记录',
+            variant: 'danger',
+        });
+
+        if (!confirmed) return;
         if (!selectedDomain) return;
         const res = await deleteDnsRecordAction(selectedKeyId, selectedDomain.domainName, toChangeRecord(record));
         if (res.success) {
@@ -263,7 +274,14 @@ export function DnsManager({ initialKeys }: DnsManagerProps) {
     };
 
     const handleBatchDelete = async () => {
-        if (!confirm(`确定删除选中的 ${selectedRecordIds.size} 条记录吗？`)) return;
+        const confirmed = await confirm({
+            title: '批量删除解析记录',
+            description: `确定删除选中的 ${selectedRecordIds.size} 条解析记录吗？批量删除后无法撤销。`,
+            confirmText: '批量删除',
+            variant: 'danger',
+        });
+
+        if (!confirmed) return;
         if (!selectedDomain) return;
         const selectedRecords = records.filter(record => selectedRecordIds.has(record.RecordId)).map(toChangeRecord);
         const res = await batchDeleteDnsRecordsAction(selectedKeyId, selectedDomain.domainName, selectedRecords);
@@ -439,18 +457,15 @@ export function DnsManager({ initialKeys }: DnsManagerProps) {
                     <Button variant="ghost" onClick={() => setIsLogsOpen(true)} className="text-gray-400 hover:text-white">
                         <History className="mr-2 h-4 w-4" /> 操作日志
                     </Button>
-                    <div className="w-full md:w-64">
-                        <select
-                            className="flex h-10 w-full rounded-lg border border-white/10 bg-black/20 px-3 py-2 text-sm text-white focus:outline-none focus:ring-2 focus:ring-blue-500/50 transition-all hover:bg-black/30"
-                            value={selectedKeyId}
-                            onChange={(e) => setSelectedKeyId(e.target.value)}
-                        >
-                            {initialKeys.length === 0 && <option value="">无可用 AccessKey</option>}
-                            {initialKeys.map(k => (
-                                <option key={k.id} value={k.id} className="bg-gray-900">{k.name} ({k.accessKeyId})</option>
-                            ))}
-                        </select>
-                    </div>
+                    <Select
+                        ariaLabel="选择 AccessKey"
+                        className="w-full md:w-64"
+                        value={selectedKeyId}
+                        onValueChange={setSelectedKeyId}
+                        options={initialKeys.length === 0
+                            ? [{ value: '', label: '无可用 AccessKey', disabled: true }]
+                            : initialKeys.map((key) => ({ value: key.id, label: `${key.name} (${key.accessKeyId})` }))}
+                    />
                 </div>
             </div>
 
@@ -662,28 +677,28 @@ export function DnsManager({ initialKeys }: DnsManagerProps) {
                                     </div>
                                     <div className="md:col-span-2">
                                         <label className="text-sm font-medium text-gray-300 ml-1 block mb-1">记录类型</label>
-                                        <select
-                                            className="flex h-10 w-full rounded-lg border border-white/10 bg-black/20 px-3 py-2 text-sm text-white focus:outline-none focus:ring-2 focus:ring-blue-500/50"
+                                        <Select
+                                            ariaLabel="记录类型"
                                             value={type}
-                                            onChange={e => setType(e.target.value)}
-                                        >
-                                            {['A', 'CNAME', 'TXT', 'MX', 'AAAA', 'NS'].map(t => <option key={t} value={t} className="bg-gray-900">{t}</option>)}
-                                        </select>
+                                            onValueChange={setType}
+                                            options={['A', 'CNAME', 'TXT', 'MX', 'AAAA', 'NS'].map((nextType) => ({ value: nextType, label: nextType }))}
+                                        />
                                     </div>
                                     <div className="md:col-span-4">
                                         <Input label="记录值" placeholder="1.1.1.1" value={value} onChange={e => setValue(e.target.value)} required />
                                     </div>
                                     <div className="md:col-span-2">
                                         <label className="text-sm font-medium text-gray-300 ml-1 block mb-1">TTL (秒)</label>
-                                        <select
-                                            className="flex h-10 w-full rounded-lg border border-white/10 bg-black/20 px-3 py-2 text-sm text-white focus:outline-none focus:ring-2 focus:ring-blue-500/50"
-                                            value={ttl}
-                                            onChange={e => setTtl(Number(e.target.value))}
-                                        >
-                                            <option value={600} className="bg-gray-900">10 分钟 (默认)</option>
-                                            <option value={3600} className="bg-gray-900">1 小时</option>
-                                            <option value={86400} className="bg-gray-900">1 天</option>
-                                        </select>
+                                        <Select
+                                            ariaLabel="TTL"
+                                            value={String(ttl)}
+                                            onValueChange={(nextValue) => setTtl(Number(nextValue))}
+                                            options={[
+                                                { value: '600', label: '10 分钟 (默认)' },
+                                                { value: '3600', label: '1 小时' },
+                                                { value: '86400', label: '1 天' },
+                                            ]}
+                                        />
                                     </div>
                                     <div className="md:col-span-1">
                                         <Button type="submit" isLoading={isSubmitting} className="w-full">
@@ -704,34 +719,33 @@ export function DnsManager({ initialKeys }: DnsManagerProps) {
                                 <input
                                     type="text"
                                     placeholder="搜索主机记录或记录值..."
-                                    className="w-full bg-black/20 border border-white/5 rounded-lg px-3 py-1.5 text-sm text-white focus:outline-none focus:ring-1 focus:ring-blue-500/50 placeholder:text-gray-600"
+                                    className="field-control px-3 py-1.5 text-sm"
                                     value={searchTerm}
                                     onChange={(e) => setSearchTerm(e.target.value)}
                                 />
                             </div>
                             <div className="w-32">
-                                <select
-                                    className="w-full bg-black/20 border border-white/5 rounded-lg px-3 py-1.5 text-sm text-white focus:outline-none focus:ring-1 focus:ring-blue-500/50"
+                                <Select
+                                    ariaLabel="筛选记录类型"
                                     value={typeFilter}
-                                    onChange={(e) => setTypeFilter(e.target.value)}
-                                >
-                                    <option value="All">全部类型</option>
-                                    {Array.from(new Set(records.map(r => r.Type))).sort().map(t => (
-                                        <option key={t} value={t} className="bg-gray-900">{t}</option>
-                                    ))}
-                                </select>
+                                    onValueChange={setTypeFilter}
+                                    options={[
+                                        { value: 'All', label: '全部类型' },
+                                        ...Array.from(new Set(records.map(r => r.Type))).sort().map((nextType) => ({ value: nextType, label: nextType })),
+                                    ]}
+                                />
                             </div>
                             <div className="w-32">
-                                <select
-                                    aria-label="筛选记录状态"
-                                    className="w-full bg-black/20 border border-white/5 rounded-lg px-3 py-1.5 text-sm text-white focus:outline-none focus:ring-1 focus:ring-blue-500/50"
+                                <Select
+                                    ariaLabel="筛选记录状态"
                                     value={statusFilter}
-                                    onChange={(e) => setStatusFilter(e.target.value as DnsStatusFilter)}
-                                >
-                                    <option value="All">全部状态</option>
-                                    <option value="Enable">仅正常</option>
-                                    <option value="Disable">仅暂停</option>
-                                </select>
+                                    onValueChange={(nextValue) => setStatusFilter(nextValue as DnsStatusFilter)}
+                                    options={[
+                                        { value: 'All', label: '全部状态' },
+                                        { value: 'Enable', label: '仅正常' },
+                                        { value: 'Disable', label: '仅暂停' },
+                                    ]}
+                                />
                             </div>
                             <label className="relative w-28">
                                 <span className="sr-only">最小 TTL</span>
@@ -742,7 +756,7 @@ export function DnsManager({ initialKeys }: DnsManagerProps) {
                                     placeholder="TTL ≥"
                                     value={minTtlFilter}
                                     onChange={(e) => setMinTtlFilter(e.target.value)}
-                                    className="w-full bg-black/20 border border-white/5 rounded-lg px-3 py-1.5 text-sm text-white focus:outline-none focus:ring-1 focus:ring-blue-500/50 placeholder:text-gray-600"
+                                    className="field-control px-3 py-1.5 text-sm"
                                 />
                             </label>
                             <label className="relative w-28">
@@ -754,7 +768,7 @@ export function DnsManager({ initialKeys }: DnsManagerProps) {
                                     placeholder="TTL ≤"
                                     value={maxTtlFilter}
                                     onChange={(e) => setMaxTtlFilter(e.target.value)}
-                                    className="w-full bg-black/20 border border-white/5 rounded-lg px-3 py-1.5 text-sm text-white focus:outline-none focus:ring-1 focus:ring-blue-500/50 placeholder:text-gray-600"
+                                    className="field-control px-3 py-1.5 text-sm"
                                 />
                             </label>
                             {(searchTerm || typeFilter !== 'All' || statusFilter !== 'All' || minTtlFilter || maxTtlFilter) && (
@@ -802,7 +816,7 @@ export function DnsManager({ initialKeys }: DnsManagerProps) {
                                             <div className="flex items-center justify-center">
                                                 <input
                                                     type="checkbox"
-                                                    className="rounded border-gray-600 bg-gray-700 text-blue-500 focus:ring-blue-500/50 h-5 w-5 cursor-pointer"
+                                                    className="checkbox-control"
                                                     checked={selectedRecordIds.size === filteredAndSortedRecords.length && filteredAndSortedRecords.length > 0}
                                                     onChange={handleSelectAll}
                                                     onClick={(e) => e.stopPropagation()}
@@ -854,7 +868,7 @@ export function DnsManager({ initialKeys }: DnsManagerProps) {
                                                 <div className="flex items-center justify-center">
                                                     <input
                                                         type="checkbox"
-                                                        className="rounded border-gray-600 bg-gray-700 text-blue-500 focus:ring-blue-500/50 h-5 w-5 cursor-pointer"
+                                                        className="checkbox-control"
                                                         checked={selectedRecordIds.has(record.RecordId)}
                                                         onChange={() => handleToggleSelect(record.RecordId)}
                                                         onClick={(e) => e.stopPropagation()}
@@ -865,7 +879,12 @@ export function DnsManager({ initialKeys }: DnsManagerProps) {
                                                 <div className="flex items-center gap-2 max-w-[150px]" title={record.RR}>
                                                     <span className="truncate flex-1">{record.RR}</span>
                                                     <button
-                                                        onClick={() => handleCopy(record.RR, '主机记录')}
+                                                        type="button"
+                                                        onClick={(event) => {
+                                                            event.preventDefault();
+                                                            event.stopPropagation();
+                                                            void handleCopy(record.RR, '主机记录');
+                                                        }}
                                                         className="opacity-0 group-hover/cell:opacity-100 text-gray-500 hover:text-blue-400 transition-all shrink-0"
                                                         title="复制主机记录"
                                                     >
@@ -885,7 +904,12 @@ export function DnsManager({ initialKeys }: DnsManagerProps) {
                                                 <div className="flex items-center gap-2 max-w-[200px]" title={record.Value}>
                                                     <span className="truncate flex-1">{record.Value}</span>
                                                     <button
-                                                        onClick={() => handleCopy(record.Value, '记录值')}
+                                                        type="button"
+                                                        onClick={(event) => {
+                                                            event.preventDefault();
+                                                            event.stopPropagation();
+                                                            void handleCopy(record.Value, '记录值');
+                                                        }}
                                                         className="opacity-0 group-hover/cell:opacity-100 text-gray-500 hover:text-blue-400 transition-all shrink-0"
                                                         title="复制记录值"
                                                     >

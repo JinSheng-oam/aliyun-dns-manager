@@ -7,6 +7,7 @@ import { Button } from '@/components/ui/Button';
 import { Input } from '@/components/ui/Input';
 import { Trash2, Plus, Eye, EyeOff, Copy, Pencil } from 'lucide-react';
 import { useToast } from '@/components/ui/Toast';
+import { useConfirm } from '@/components/ui/ConfirmDialog';
 import { useRouter } from 'next/navigation';
 
 interface KeyListProps {
@@ -21,6 +22,7 @@ export function KeyList({ initialKeys, readError }: KeyListProps) {
     const [showSecrets, setShowSecrets] = useState<Record<string, boolean>>({});
     const router = useRouter();
     const toast = useToast();
+    const confirm = useConfirm();
 
     // Form State
     const [name, setName] = useState('');
@@ -88,7 +90,15 @@ export function KeyList({ initialKeys, readError }: KeyListProps) {
     };
 
     const handleDeleteKey = async (id: string) => {
-        if (!confirm('确定要删除这个密钥吗？')) return;
+        const confirmed = await confirm({
+            title: '删除 AccessKey',
+            description: '确定要删除这个 AccessKey 吗？删除后无法再使用它管理对应的域名解析。',
+            confirmText: '删除',
+            variant: 'danger',
+        });
+
+        if (!confirmed) return;
+
         const res = await deleteAccessKeyAction(id);
         if (res.success) {
             toast.success('AccessKey 删除成功');
@@ -151,7 +161,15 @@ export function KeyList({ initialKeys, readError }: KeyListProps) {
                                 {key.name}
                                 <span className="text-xs text-gray-400 bg-white/10 px-2 py-0.5 rounded-full font-mono flex items-center gap-1 group/key">
                                     {key.accessKeyId}
-                                    <button onClick={() => handleCopy(key.accessKeyId, 'Key ID')} className="opacity-0 group-hover/key:opacity-100 hover:text-white transition-opacity">
+                                    <button
+                                        type="button"
+                                        onClick={(event) => {
+                                            event.preventDefault();
+                                            event.stopPropagation();
+                                            void handleCopy(key.accessKeyId, 'Key ID');
+                                        }}
+                                        className="opacity-0 group-hover/key:opacity-100 hover:text-white transition-opacity"
+                                    >
                                         <Copy className="h-3 w-3" />
                                     </button>
                                 </span>
@@ -162,7 +180,16 @@ export function KeyList({ initialKeys, readError }: KeyListProps) {
                                     {showSecrets[key.id] ? <EyeOff className="h-3 w-3" /> : <Eye className="h-3 w-3" />}
                                 </button>
                                 {showSecrets[key.id] && (
-                                    <button type="button" onClick={() => handleCopy(key.accessKeySecret, 'Key Secret')} className="hover:text-white transition-colors" title="复制 Secret">
+                                    <button
+                                        type="button"
+                                        onClick={(event) => {
+                                            event.preventDefault();
+                                            event.stopPropagation();
+                                            void handleCopy(key.accessKeySecret, 'Key Secret');
+                                        }}
+                                        className="hover:text-white transition-colors"
+                                        title="复制 Secret"
+                                    >
                                         <Copy className="h-3 w-3" />
                                     </button>
                                 )}

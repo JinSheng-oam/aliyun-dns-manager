@@ -5,6 +5,7 @@ import { Download, FileUp, HardDriveDownload, ShieldAlert } from 'lucide-react';
 import { createDataBackupAction, restoreDataBackupAction } from '@/app/actions';
 import { Button } from '@/components/ui/Button';
 import { useToast } from '@/components/ui/Toast';
+import { useConfirm } from '@/components/ui/ConfirmDialog';
 
 interface BackupPreview {
     content: string;
@@ -19,6 +20,7 @@ export function BackupManager() {
     const [isRestoring, setIsRestoring] = useState(false);
     const [preview, setPreview] = useState<BackupPreview | null>(null);
     const toast = useToast();
+    const confirm = useConfirm();
 
     const handleExport = async () => {
         setIsExporting(true);
@@ -91,9 +93,12 @@ export function BackupManager() {
             return;
         }
 
-        const confirmed = window.confirm(
-            '恢复会覆盖当前 AccessKey 和操作日志。请确认已经另外保存当前数据，并且当前 ENCRYPTION_KEY 与备份一致。是否继续？'
-        );
+        const confirmed = await confirm({
+            title: '恢复数据备份',
+            description: '恢复会覆盖当前 AccessKey 和操作日志。请确认已经另外保存当前数据，并且当前 ENCRYPTION_KEY 与备份一致。',
+            confirmText: '继续恢复',
+            variant: 'danger',
+        });
 
         if (!confirmed) {
             return;

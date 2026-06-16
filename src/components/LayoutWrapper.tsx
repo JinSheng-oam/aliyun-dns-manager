@@ -15,7 +15,7 @@ export function LayoutWrapper({ children }: { children: React.ReactNode }) {
                 "min-h-screen transition-all duration-300",
                 isLoginPage ? "pl-0" : "lg:pl-64 pl-0"
             )}>
-                <div className="container mx-auto p-8">
+                <div key={pathname} className="page-transition container mx-auto p-8">
                     {children}
                 </div>
             </main>

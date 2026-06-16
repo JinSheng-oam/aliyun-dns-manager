@@ -6,6 +6,7 @@ import { Key, Globe, LayoutDashboard, LogOut, ShieldCheck } from 'lucide-react';
 import { logoutAction } from '@/app/actions';
 import { clsx } from 'clsx';
 import { twMerge } from 'tailwind-merge';
+import { useConfirm } from '@/components/ui/ConfirmDialog';
 
 const navItems = [
     { name: '仪表盘', href: '/', icon: LayoutDashboard },
@@ -16,12 +17,20 @@ const navItems = [
 
 export function Sidebar() {
     const pathname = usePathname();
+    const confirm = useConfirm();
 
     const handleLogout = async () => {
-        if (confirm('确定要退出登录吗？')) {
-            await logoutAction();
-            window.location.href = '/login';
-        }
+        const confirmed = await confirm({
+            title: '退出登录',
+            description: '确定要退出当前管理会话吗？退出后需要重新登录才能继续管理 DNS。',
+            confirmText: '退出登录',
+            variant: 'danger',
+        });
+
+        if (!confirmed) return;
+
+        await logoutAction();
+        window.location.href = '/login';
     };
 
     if (pathname === '/login') return null;
