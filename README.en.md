@@ -301,6 +301,10 @@ The key and DNS pages show a read error and stop AccessKey writes so the existin
 3. Restore the original `ENCRYPTION_KEY` used when the AccessKeys were saved.
 4. If the key did not change, check whether `data/access_keys.json` is damaged.
 
+### Why are AccessKeys hidden after an upgrade until I add a new one?
+
+This is usually a display issue caused by stale page caching in older versions. The data itself is not lost. Upgrade to a fixed version and restart the app. The keys and DNS pages will then read the current local data on every visit.
+
 ### Can I use it over the public internet?
 
 Yes, but it is safer to use it behind HTTPS, a reverse proxy, and access controls.

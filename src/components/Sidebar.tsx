@@ -71,7 +71,7 @@ export function Sidebar() {
                     <span>退出登录</span>
                 </button>
                 <div className="text-[10px] text-gray-600 px-4 text-center uppercase tracking-widest">
-                    V0.3.0 • SECURED
+                    V0.3.1 • SECURED
                 </div>
             </div>
         </div>

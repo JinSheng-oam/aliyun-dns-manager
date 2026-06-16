@@ -2,6 +2,8 @@ import { getAccessKeysAction } from '@/app/actions';
 import { DnsManager } from './components/DnsManager';
 import { AlertTriangle } from 'lucide-react';
 
+export const dynamic = 'force-dynamic';
+
 export default async function DnsPage() {
     const result = await getAccessKeysAction();
     const keys = result.data || [];
