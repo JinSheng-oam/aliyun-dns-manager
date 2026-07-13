@@ -2,23 +2,25 @@
 
 import { usePathname } from 'next/navigation';
 import { Sidebar } from '@/components/Sidebar';
-import { twMerge } from 'tailwind-merge';
 
 export function LayoutWrapper({ children }: { children: React.ReactNode }) {
-    const pathname = usePathname();
-    const isLoginPage = pathname === '/login';
+  const pathname = usePathname();
+  const isLoginPage = pathname === '/login';
 
-    return (
-        <>
-            <Sidebar />
-            <main className={twMerge(
-                "min-h-screen transition-all duration-300",
-                isLoginPage ? "pl-0" : "lg:pl-64 pl-0"
-            )}>
-                <div key={pathname} className="page-transition container mx-auto p-8">
-                    {children}
-                </div>
-            </main>
-        </>
-    );
+  return (
+    <>
+      <Sidebar />
+      <main
+        className={isLoginPage ? 'min-h-screen' : 'min-h-screen lg:pl-[240px]'}
+      >
+        {isLoginPage ? (
+          children
+        ) : (
+          <div key={pathname} className="page-transition mx-auto max-w-7xl px-4 sm:px-6 py-6">
+            {children}
+          </div>
+        )}
+      </main>
+    </>
+  );
 }

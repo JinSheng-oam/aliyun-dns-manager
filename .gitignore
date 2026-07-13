@@ -12,6 +12,9 @@
 
 # testing
 /coverage
+/test-results/
+/playwright-report/
+/blob-report/
 
 # next.js
 /.next/
@@ -36,6 +39,7 @@ yarn-error.log*
 
 # data
 /data/
+/.e2e-data/
 /release/
 release.zip
 aliyun-dns-manager-*.zip

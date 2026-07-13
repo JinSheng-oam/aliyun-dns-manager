@@ -16,10 +16,10 @@
 你可以用它来：
 
 - 在本地保存并管理多个阿里云 AccessKey
-- 查看某个账号下的全部域名
+- 自动翻页并查看某个账号下的全部域名和解析记录
 - 查询、搜索，并按类型、状态、TTL 范围筛选和排序 DNS 记录
 - 新增、编辑、启用、暂停、删除 DNS 记录
-- 批量删除或批量修改记录状态
+- 批量删除或批量修改记录状态，并查看成功、失败数量和失败明细
 - 通过 CSV 导入和导出解析记录，导入前预览新增、跳过和错误项
 - 按域名导出可重新导入的完整 JSON 备份
 - 按当前域名查看新增、修改、删除和状态变更历史
@@ -58,7 +58,7 @@ node scripts/run-with-port.js start
 
 ### 环境要求
 
-- Node.js 18 或更高版本
+- Node.js 20.9 或更高版本（推荐 Node.js 22）
 - npm
 
 ### 安装
@@ -97,6 +97,7 @@ http://localhost:3000
 | `ADMIN_PASSWORD` | 是 | 进入后台所需的管理员密码。 |
 | `SESSION_SECRET` | 推荐 | 用于签名登录会话 Cookie。 |
 | `ENCRYPTION_KEY` | 推荐 | 用于加密本地保存的 AccessKey。 |
+| `APP_DATA_DIR` | 否 | 自定义数据保存目录，默认使用项目目录下的 `data/`。 |
 | `PORT` | 否 | 应用端口，默认 `3000`。 |
 | `HOST` | 否 | 监听地址，默认 `0.0.0.0`。 |
 | `FORCE_HTTPS_COOKIE` | 否 | 在 HTTPS 部署时建议设为 `true`。 |
@@ -221,6 +222,42 @@ TTL 留空表示不限制。点击“重置筛选”可以一次清空全部条�
 
 ## 部署方式
 
+### 使用 Docker Compose
+
+先复制并修改环境变量：
+
+```bash
+copy .env.example .env
+```
+
+在 Linux 或 macOS 上可使用：
+
+```bash
+cp .env.example .env
+```
+
+确认已经修改 `.env` 中的 `ADMIN_PASSWORD`、`SESSION_SECRET` 和 `ENCRYPTION_KEY`，然后启动：
+
+```bash
+docker compose up -d --build
+```
+
+Docker Compose 会把本地 `data/` 挂载到容器中。更新或重建容器不会删除 AccessKey 和操作日志，但仍建议升级前使用“安全检查”页面导出备份。
+
+查看运行状态：
+
+```bash
+docker compose ps
+```
+
+停止服务：
+
+```bash
+docker compose down
+```
+
+健康检查地址为 `/api/health`，例如 `http://localhost:3000/api/health`。实际端口以 `.env` 中的 `PORT` 为准。
+
 ### 普通 Node.js 运行
 
 ```bash
@@ -247,6 +284,15 @@ npm run package
 执行后会生成可部署的 `release/` 目录。
 
 ## 升级版本
+
+### 使用 Docker Compose 时
+
+```bash
+git pull
+docker compose up -d --build
+```
+
+升级前请备份 `.env` 和 `data/`，并始终保留原来的 `ENCRYPTION_KEY`。容器更新后可通过 `docker compose ps` 检查健康状态。
 
 ### 使用发行包时
 

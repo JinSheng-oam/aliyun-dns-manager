@@ -20,7 +20,7 @@ jobs:
       - name: Setup Node.js
         uses: actions/setup-node@v6
         with:
-          node-version: "20"
+          node-version: "22"
           cache: npm
 
       - name: Install dependencies
@@ -45,8 +45,17 @@ jobs:
       - name: Run security and data tests
         run: npm run test:ci
 
+      - name: Install Chromium
+        run: npx playwright install --with-deps chromium
+
+      - name: Run browser tests
+        run: npm run test:e2e
+
       - name: Audit production dependencies
         run: npm audit --omit=dev
+
+      - name: Build Docker image
+        run: docker build --tag aliyun-dns-manager:${GITHUB_REF_NAME} .
 
       - name: Build release package
         run: npm run package
@@ -84,11 +93,12 @@ jobs:
 
           ### 本版本更新
 
-          - 优化输入框、数字输入框、复选框和下拉控件的视觉样式
-          - 将可见下拉框替换为应用内自定义下拉，避免系统原生菜单风格不一致
-          - 将退出登录、删除、批量删除和恢复备份确认改为应用内确认弹窗
-          - 修复登录窗口和日志窗口可能显示到屏幕外的问题
-          - 修复复制 DNS 记录后意外返回域名列表的问题
+          - 全面优化桌面端和移动端界面，支持浅色与深色模式
+          - 增加 Dockerfile、Docker Compose、数据持久化和健康检查
+          - 域名与解析记录支持自动翻页，避免大账号数据遗漏
+          - 批量新增、删除和状态修改采用受控并发，并显示成功与失败明细
+          - 增加登录、日志弹窗、AccessKey 持久化和移动端导航浏览器测试
+          - 修复操作日志弹窗偏移及近期发现的页面交互问题
 
           ### 升级提醒
 
@@ -107,8 +117,10 @@ jobs:
           - \`npm run lint\`
           - \`npx tsc --noEmit\`
           - \`npm run test:ci\`
+          - \`npm run test:e2e\`
           - \`npm audit --omit=dev\`
           - \`npm run package\`
+          - Docker 镜像构建
           - 发行包检查：不包含 \`.env\` 或 \`data/\`
           EOF
 

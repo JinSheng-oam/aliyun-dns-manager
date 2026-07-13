@@ -1,6 +1,6 @@
 {
   "name": "aliyun-dns-manager",
-  "version": "0.3.2",
+  "version": "0.4.0",
   "private": true,
   "scripts": {
     "dev": "node scripts/run-with-port.js dev",
@@ -8,7 +8,8 @@
     "start": "node scripts/run-with-port.js start",
     "package": "node scripts/package.js",
     "lint": "eslint",
-    "test:ci": "node scripts/ci-tests.js"
+    "test:ci": "node scripts/ci-tests.js",
+    "test:e2e": "playwright test"
   },
   "dependencies": {
     "@alicloud/alidns20150109": "^4.3.0",
@@ -24,6 +25,7 @@
     "tailwind-merge": "^3.4.0"
   },
   "devDependencies": {
+    "@playwright/test": "^1.61.1",
     "@tailwindcss/postcss": "^4",
     "@types/node": "^20",
     "@types/react": "^19",

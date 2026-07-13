@@ -1,7 +1,9 @@
 import fs from 'fs/promises';
 import path from 'path';
 
-const DATA_DIR = path.join(process.cwd(), 'data');
+const DATA_DIR = process.env.APP_DATA_DIR?.trim()
+    ? path.resolve(/* turbopackIgnore: true */ process.env.APP_DATA_DIR.trim())
+    : path.join(process.cwd(), 'data');
 const LOG_FILE_PATH = path.join(DATA_DIR, 'logs.json');
 
 export interface LogEntry {

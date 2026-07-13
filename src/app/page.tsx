@@ -1,50 +1,102 @@
-import { Button } from "@/components/ui/Button";
 import Link from 'next/link';
-import { ArrowRight, ShieldCheck, Globe } from 'lucide-react';
+import { ArrowRight, ShieldCheck, Globe, Key, ClipboardCheck } from 'lucide-react';
+
+const cards = [
+  {
+    href: '/keys',
+    icon: Key,
+    title: '密钥管理',
+    desc: '安全存储和管理 AccessKey，AES-256-GCM 加密，多账户自由切换。',
+  },
+  {
+    href: '/dns',
+    icon: Globe,
+    title: 'DNS 解析',
+    desc: '查询、添加、编辑域名解析记录，支持批量操作和 CSV 导入导出。',
+  },
+  {
+    href: '/security',
+    icon: ShieldCheck,
+    title: '安全检查',
+    desc: '环境变量安全审计、备份恢复、操作日志，确保部署安全无虞。',
+  },
+];
 
 export default function Home() {
   return (
-    <div className="flex flex-col items-center justify-center min-h-[80vh] text-center space-y-12 animate-in fade-in slide-in-from-bottom-8 duration-700">
-      <div className="space-y-6 max-w-4xl">
-        <h1 className="text-4xl md:text-6xl font-bold bg-gradient-to-r from-blue-400 via-purple-400 to-pink-400 bg-clip-text text-transparent p-1 leading-tight">
+    <div className="flex flex-col items-center justify-center min-h-[75vh] gap-12 animate-in fade-in slide-in-from-bottom-4 duration-500">
+      {/* Hero */}
+      <header className="text-center space-y-4 max-w-2xl">
+        <div
+          className="inline-flex items-center gap-2 rounded-full border px-3 py-1 text-xs font-medium"
+          style={{ borderColor: 'var(--border)', color: 'var(--muted)' }}
+        >
+          <div
+            className="h-1.5 w-1.5 rounded-full"
+            style={{ backgroundColor: 'var(--success)' }}
+          />
+          本地部署 · 数据可控
+        </div>
+        <h1
+          className="text-4xl sm:text-5xl font-bold tracking-tight leading-tight"
+          style={{ color: 'var(--fg)' }}
+        >
           Aliyun DNS Manager
         </h1>
-        <p className="text-xl text-gray-400 leading-relaxed">
-          极简、安全、现代化的阿里云 DNS 管理工具。<br />
-          本地密钥存储，直连阿里云 API，为您提供最流畅的解析管理体验。
+        <p className="text-base leading-relaxed" style={{ color: 'var(--muted)' }}>
+          阿里云 DNS 在线管理工具。本地密钥存储，直连阿里云 API，
+          提供极简流畅的域名解析运维体验。
         </p>
+      </header>
+
+      {/* Quick links */}
+      <div className="grid grid-cols-1 sm:grid-cols-3 gap-4 w-full max-w-3xl">
+        {cards.map((card) => (
+          <Link
+            key={card.href}
+            href={card.href}
+            className="surface surface-hover p-6 flex flex-col gap-4 group transition-all duration-200"
+            style={{ borderRadius: 'var(--r-xl)' }}
+          >
+            <div
+              className="h-10 w-10 rounded-lg flex items-center justify-center shrink-0 transition-transform group-hover:scale-110"
+              style={{ backgroundColor: 'var(--accent-light)', color: 'var(--accent)' }}
+            >
+              <card.icon className="h-5 w-5" />
+            </div>
+            <div className="space-y-1.5 flex-1">
+              <h3 className="text-[15px] font-semibold" style={{ color: 'var(--fg)' }}>
+                {card.title}
+              </h3>
+              <p className="text-sm leading-relaxed" style={{ color: 'var(--muted)' }}>
+                {card.desc}
+              </p>
+            </div>
+            <div
+              className="flex items-center gap-1 text-sm font-medium transition-all group-hover:gap-2"
+              style={{ color: 'var(--accent)' }}
+            >
+              进入
+              <ArrowRight className="h-3.5 w-3.5" />
+            </div>
+          </Link>
+        ))}
       </div>
 
-      <div className="grid grid-cols-1 md:grid-cols-2 gap-6 w-full max-w-3xl">
-        <div className="glass p-8 rounded-2xl flex flex-col items-center hover:bg-white/5 transition-all group">
-          <div className="h-16 w-16 bg-blue-500/10 rounded-full flex items-center justify-center mb-6 group-hover:scale-110 transition-transform">
-            <ShieldCheck className="h-8 w-8 text-blue-400" />
-          </div>
-          <h3 className="text-2xl font-bold mb-2">密钥管理</h3>
-          <p className="text-gray-400 mb-6 flex-1">
-            安全地存储和管理您的 AccessKey。支持多账户切换。
-          </p>
-          <Link href="/keys">
-            <Button variant="secondary" className="group-hover:bg-blue-500 group-hover:text-white transition-all">
-              管理密钥 <ArrowRight className="ml-2 h-4 w-4" />
-            </Button>
-          </Link>
-        </div>
-
-        <div className="glass p-8 rounded-2xl flex flex-col items-center hover:bg-white/5 transition-all group">
-          <div className="h-16 w-16 bg-purple-500/10 rounded-full flex items-center justify-center mb-6 group-hover:scale-110 transition-transform">
-            <Globe className="h-8 w-8 text-purple-400" />
-          </div>
-          <h3 className="text-2xl font-bold mb-2">DNS 解析</h3>
-          <p className="text-gray-400 mb-6 flex-1">
-            快速查询、添加和删除域名解析记录。实时生效。
-          </p>
-          <Link href="/dns">
-            <Button variant="secondary" className="group-hover:purple-500 group-hover:bg-purple-500 group-hover:text-white transition-all">
-              管理解析 <ArrowRight className="ml-2 h-4 w-4" />
-            </Button>
-          </Link>
-        </div>
+      {/* Footer stats */}
+      <div
+        className="flex flex-wrap items-center justify-center gap-6 text-xs"
+        style={{ color: 'var(--muted)' }}
+      >
+        <span className="flex items-center gap-1.5">
+          <ClipboardCheck className="h-3.5 w-3.5" style={{ color: 'var(--success)' }} />
+          AES-256-GCM 加密存储
+        </span>
+        <span className="flex items-center gap-1.5">
+          <ShieldCheck className="h-3.5 w-3.5" style={{ color: 'var(--accent)' }} />
+          HMAC-SHA256 会话认证
+        </span>
+        <span>v{process.env.NEXT_PUBLIC_APP_VERSION}</span>
       </div>
     </div>
   );

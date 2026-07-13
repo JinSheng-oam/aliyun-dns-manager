@@ -16,10 +16,10 @@ Aliyun DNS Manager helps you manage Alibaba Cloud DNS in a cleaner way than work
 You can use it to:
 
 - store and manage multiple Aliyun AccessKeys locally
-- browse all domains under a selected account
+- automatically load every page of domains and DNS records under a selected account
 - view, search, sort, and filter DNS records by type, status, and TTL range
 - add, edit, enable, disable, and delete DNS records
-- batch delete or batch change record status
+- batch delete or change record status with success and failure details
 - import and export DNS records as CSV, with a preview of additions, skipped rows, and errors
 - export a complete, re-importable JSON backup for each domain
 - view add, update, delete, and status-change history for the selected domain
@@ -58,7 +58,7 @@ On Windows, you can also double-click `start.bat` after configuring `.env`.
 
 ### Requirements
 
-- Node.js 18 or later
+- Node.js 20.9 or later (Node.js 22 recommended)
 - npm
 
 ### Install
@@ -97,6 +97,7 @@ http://localhost:3000
 | `ADMIN_PASSWORD` | Yes | Password required to enter the admin panel. |
 | `SESSION_SECRET` | Recommended | Secret used to sign login session cookies. |
 | `ENCRYPTION_KEY` | Recommended | Encrypts locally stored AccessKeys. |
+| `APP_DATA_DIR` | No | Custom data directory. Defaults to `data/` in the project directory. |
 | `PORT` | No | Application port. Default is `3000`. |
 | `HOST` | No | Listening address. Default is `0.0.0.0`. |
 | `FORCE_HTTPS_COOKIE` | No | Set to `true` when deploying behind HTTPS. |
@@ -221,6 +222,25 @@ If you need to manage multiple domains, add them to `Resource`. Avoid granting b
 
 ## Deployment
 
+### Run with Docker Compose
+
+Copy `.env.example` to `.env`, set `ADMIN_PASSWORD`, `SESSION_SECRET`, and `ENCRYPTION_KEY`, then run:
+
+```bash
+docker compose up -d --build
+```
+
+Docker Compose mounts the local `data/` directory into the container, so rebuilding the container keeps AccessKeys and logs. It is still recommended to export a backup from the Security page before upgrading.
+
+Check or stop the service with:
+
+```bash
+docker compose ps
+docker compose down
+```
+
+The health endpoint is `/api/health`, for example `http://localhost:3000/api/health`. The actual host port follows `PORT` in `.env`.
+
 ### Run as a Normal Node.js App
 
 ```bash
@@ -247,6 +267,15 @@ npm run package
 This generates a deployable `release/` directory.
 
 ## Upgrade
+
+### If You Use Docker Compose
+
+```bash
+git pull
+docker compose up -d --build
+```
+
+Back up `.env` and `data/` before upgrading, and always keep the original `ENCRYPTION_KEY`. After upgrading, use `docker compose ps` to check service health.
 
 ### If You Use the Release Package
 

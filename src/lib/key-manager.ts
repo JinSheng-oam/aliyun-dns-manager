@@ -3,7 +3,9 @@ import path from 'path';
 import crypto from 'crypto';
 import type { AccessKey } from './types';
 
-const DATA_DIR = path.join(process.cwd(), 'data');
+const DATA_DIR = process.env.APP_DATA_DIR?.trim()
+    ? path.resolve(/* turbopackIgnore: true */ process.env.APP_DATA_DIR.trim())
+    : path.join(process.cwd(), 'data');
 const DATA_FILE = path.join(DATA_DIR, 'access_keys.json');
 
 // Encryption Config

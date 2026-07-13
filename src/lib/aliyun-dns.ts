@@ -2,6 +2,7 @@ import Alidns20150109, * as $Alidns20150109 from '@alicloud/alidns20150109';
 import * as $OpenApi from '@alicloud/openapi-client';
 import * as $Util from '@alicloud/tea-util';
 import { getErrorMessage } from './errors';
+import { collectAllPages } from './pagination';
 
 type AliyunDomainLike = {
     domainId?: string;
@@ -49,13 +50,16 @@ export class AliyunDnsClient {
      */
     static async listDomains(accessKeyId: string, accessKeySecret: string) {
         const client = AliyunDnsClient.createClient(accessKeyId, accessKeySecret);
-        const describeDomainsRequest = new $Alidns20150109.DescribeDomainsRequest({
-            pageSize: 100,
-        });
         const runtime = new $Util.RuntimeOptions({});
         try {
-            const resp = await client.describeDomainsWithOptions(describeDomainsRequest, runtime);
-            const domains = (resp.body?.domains?.domain || []) as AliyunDomainLike[];
+            const domains = await collectAllPages<AliyunDomainLike>(100, async (pageNumber, pageSize) => {
+                const request = new $Alidns20150109.DescribeDomainsRequest({ pageNumber, pageSize });
+                const response = await client.describeDomainsWithOptions(request, runtime);
+                return {
+                    items: (response.body?.domains?.domain || []) as AliyunDomainLike[],
+                    totalCount: response.body?.totalCount,
+                };
+            });
             return domains.map(d => ({
                 domainId: d.domainId || d.DomainId || '',
                 domainName: d.domainName || d.DomainName || '',
@@ -71,14 +75,20 @@ export class AliyunDnsClient {
 
     static async listRecords(accessKeyId: string, accessKeySecret: string, domainName: string) {
         const client = AliyunDnsClient.createClient(accessKeyId, accessKeySecret);
-        const describeDomainRecordsRequest = new $Alidns20150109.DescribeDomainRecordsRequest({
-            domainName: domainName,
-            pageSize: 500,
-        });
         const runtime = new $Util.RuntimeOptions({});
         try {
-            const resp = await client.describeDomainRecordsWithOptions(describeDomainRecordsRequest, runtime);
-            const records = (resp.body?.domainRecords?.record || []) as AliyunRecordLike[];
+            const records = await collectAllPages<AliyunRecordLike>(500, async (pageNumber, pageSize) => {
+                const request = new $Alidns20150109.DescribeDomainRecordsRequest({
+                    domainName,
+                    pageNumber,
+                    pageSize,
+                });
+                const response = await client.describeDomainRecordsWithOptions(request, runtime);
+                return {
+                    items: (response.body?.domainRecords?.record || []) as AliyunRecordLike[],
+                    totalCount: response.body?.totalCount,
+                };
+            });
             return records.map(r => ({
                 RecordId: r.RecordId || r.recordId || '',
                 RR: r.RR || r.rr || '',

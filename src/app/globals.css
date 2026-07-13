@@ -1,59 +1,151 @@
 @import "tailwindcss";
 
+/* ============================================
+   Design Tokens — Modern Minimal (Linear/Vercel)
+   ============================================ */
+
 :root {
-  --foreground-rgb: 255, 255, 255;
-  --background-start-rgb: 10, 10, 12;
-  --background-end-rgb: 20, 20, 25;
+  /* Core palette */
+  --bg: oklch(98.5% 0.002 250);
+  --surface: oklch(100% 0 0);
+  --surface-hover: oklch(97% 0.004 250);
+  --surface-elevated: oklch(100% 0 0);
+  --fg: oklch(18% 0.012 250);
+  --muted: oklch(52% 0.012 250);
+  --border: oklch(91% 0.006 250);
+  --border-hover: oklch(82% 0.01 250);
+
+  /* Accent — steel blue */
+  --accent: oklch(56% 0.18 255);
+  --accent-hover: oklch(52% 0.17 255);
+  --accent-light: oklch(96% 0.02 255);
+  --accent-ghost: oklch(98% 0.01 255);
+
+  /* Status colors */
+  --success: oklch(62% 0.18 145);
+  --success-light: oklch(96% 0.04 145);
+  --warning: oklch(70% 0.16 80);
+  --warning-light: oklch(97% 0.05 80);
+  --danger: oklch(55% 0.2 20);
+  --danger-hover: oklch(50% 0.19 20);
+  --danger-light: oklch(97% 0.03 20);
+
+  /* Spacing */
+  --sp-1: 4px;
+  --sp-2: 8px;
+  --sp-3: 12px;
+  --sp-4: 16px;
+  --sp-5: 20px;
+  --sp-6: 24px;
+  --sp-8: 32px;
+  --sp-10: 40px;
+  --sp-12: 48px;
+
+  /* Radii */
+  --r-sm: 6px;
+  --r-md: 10px;
+  --r-lg: 14px;
+  --r-xl: 20px;
+
+  /* Shadows */
+  --shadow-xs: 0 1px 2px rgba(0, 0, 0, 0.04);
+  --shadow-sm: 0 1px 3px rgba(0, 0, 0, 0.06), 0 1px 2px rgba(0, 0, 0, 0.04);
+  --shadow-md: 0 4px 6px -1px rgba(0, 0, 0, 0.06), 0 2px 4px -2px rgba(0, 0, 0, 0.04);
+  --shadow-lg: 0 10px 15px -3px rgba(0, 0, 0, 0.06), 0 4px 6px -4px rgba(0, 0, 0, 0.04);
+  --shadow-xl: 0 20px 40px -5px rgba(0, 0, 0, 0.08);
+
+  /* Typography */
+  --font-sans: -apple-system, BlinkMacSystemFont, "Segoe UI", "PingFang SC", "Microsoft YaHei", "Helvetica Neue", sans-serif;
+  --font-mono: "JetBrains Mono", "SF Mono", "Cascadia Code", "Fira Code", ui-monospace, Menlo, monospace;
+
+  /* Navbar */
+  --navbar-height: 56px;
 }
+
+/* ============================================
+   Dark Theme
+   ============================================ */
+
+[data-theme="dark"] {
+  --bg: oklch(16% 0.008 250);
+  --surface: oklch(20% 0.008 250);
+  --surface-hover: oklch(24% 0.012 250);
+  --surface-elevated: oklch(22% 0.008 250);
+  --fg: oklch(91% 0.004 250);
+  --muted: oklch(60% 0.014 250);
+  --border: oklch(28% 0.014 250);
+  --border-hover: oklch(38% 0.016 250);
+
+  --accent: oklch(65% 0.15 255);
+  --accent-hover: oklch(60% 0.14 255);
+  --accent-light: oklch(24% 0.05 255);
+  --accent-ghost: oklch(20% 0.03 255);
+
+  --success: oklch(68% 0.15 145);
+  --success-light: oklch(22% 0.05 145);
+  --warning: oklch(74% 0.13 80);
+  --warning-light: oklch(22% 0.05 80);
+  --danger: oklch(60% 0.17 20);
+  --danger-hover: oklch(55% 0.16 20);
+  --danger-light: oklch(22% 0.04 20);
+
+  --shadow-xs: 0 1px 2px rgba(0, 0, 0, 0.25);
+  --shadow-sm: 0 1px 3px rgba(0, 0, 0, 0.35), 0 1px 2px rgba(0, 0, 0, 0.25);
+  --shadow-md: 0 4px 6px rgba(0, 0, 0, 0.35), 0 2px 4px rgba(0, 0, 0, 0.25);
+  --shadow-lg: 0 10px 15px rgba(0, 0, 0, 0.35), 0 4px 6px rgba(0, 0, 0, 0.25);
+  --shadow-xl: 0 20px 40px rgba(0, 0, 0, 0.45);
+}
+
+/* ============================================
+   Base
+   ============================================ */
 
 body {
-  color: rgb(var(--foreground-rgb));
-  background: linear-gradient(to bottom right,
-      rgb(var(--background-start-rgb)),
-      rgb(var(--background-end-rgb))) no-repeat fixed;
+  font-family: var(--font-sans);
+  color: var(--fg);
+  background: var(--bg);
   min-height: 100vh;
+  -webkit-font-smoothing: auto;
+  -moz-osx-font-smoothing: auto;
+  text-rendering: optimizeLegibility;
 }
 
-/* Native form controls */
+/* ============================================
+   Native form controls — .field-control
+   ============================================ */
+
 .field-control {
   width: 100%;
-  border-radius: 0.75rem;
-  border: 1px solid rgba(255, 255, 255, 0.1);
-  background-color: rgba(2, 6, 23, 0.48);
-  color-scheme: dark;
-  box-shadow:
-    inset 0 1px 0 rgba(255, 255, 255, 0.06),
-    0 10px 30px rgba(0, 0, 0, 0.12);
-  color: rgb(255, 255, 255);
-  transition:
-    border-color 180ms ease,
-    background-color 180ms ease,
-    box-shadow 180ms ease,
-    transform 180ms ease;
+  border-radius: var(--r-md);
+  border: 1px solid var(--border);
+  background-color: var(--surface);
+  color: var(--fg);
+  font-size: 0.875rem;
+  padding: 0.5rem 0.75rem;
+  height: 2.5rem;
+  transition: border-color 150ms ease, box-shadow 150ms ease, background-color 150ms ease;
+  box-shadow: var(--shadow-xs);
 }
 
 .field-control::placeholder {
-  color: rgb(75, 85, 99);
+  color: oklch(68% 0.01 250);
 }
 
 .field-control:hover {
-  border-color: rgba(96, 165, 250, 0.28);
-  background-color: rgba(15, 23, 42, 0.62);
+  border-color: var(--border-hover);
 }
 
 .field-control:focus,
 .field-control:focus-visible {
-  border-color: rgba(96, 165, 250, 0.64);
-  box-shadow:
-    0 0 0 3px rgba(59, 130, 246, 0.18),
-    inset 0 1px 0 rgba(255, 255, 255, 0.08),
-    0 16px 36px rgba(37, 99, 235, 0.14);
+  border-color: var(--accent);
+  box-shadow: 0 0 0 3px oklch(56% 0.18 255 / 0.15);
   outline: none;
 }
 
 .field-control:disabled {
   cursor: not-allowed;
-  opacity: 0.55;
+  opacity: 0.5;
+  background-color: oklch(97% 0.003 250);
 }
 
 .field-control[type="number"] {
@@ -67,11 +159,15 @@ body {
   -webkit-appearance: none;
 }
 
+/* ============================================
+   Select control (native)
+   ============================================ */
+
 .select-control {
   appearance: none;
   background-image:
-    linear-gradient(45deg, transparent 50%, rgba(147, 197, 253, 0.95) 50%),
-    linear-gradient(135deg, rgba(147, 197, 253, 0.95) 50%, transparent 50%);
+    linear-gradient(45deg, transparent 50%, oklch(40% 0.02 250) 50%),
+    linear-gradient(135deg, oklch(40% 0.02 250) 50%, transparent 50%);
   background-position:
     calc(100% - 18px) 50%,
     calc(100% - 13px) 50%;
@@ -81,29 +177,33 @@ body {
 }
 
 .select-control option {
-  background-color: rgb(15, 23, 42);
-  color: rgb(243, 244, 246);
+  background-color: var(--surface);
+  color: var(--fg);
 }
+
+/* ============================================
+   Checkbox
+   ============================================ */
 
 .checkbox-control {
-  height: 1.25rem;
-  width: 1.25rem;
+  height: 1.125rem;
+  width: 1.125rem;
   cursor: pointer;
-  accent-color: rgb(59, 130, 246);
+  accent-color: var(--accent);
+  border-radius: var(--r-sm);
 }
 
+/* ============================================
+   Page transitions
+   ============================================ */
+
 .page-transition {
-  animation: page-enter 240ms ease-out both;
+  animation: page-enter 200ms ease-out both;
 }
 
 @keyframes page-enter {
-  from {
-    opacity: 0;
-  }
-
-  to {
-    opacity: 1;
-  }
+  from { opacity: 0; }
+  to { opacity: 1; }
 }
 
 @media (prefers-reduced-motion: reduce) {
@@ -114,44 +214,60 @@ body {
   }
 }
 
-/* Glassmorphism Utilities */
-.glass {
-  background: rgba(255, 255, 255, 0.05);
-  backdrop-filter: blur(10px);
-  -webkit-backdrop-filter: blur(10px);
-  border: 1px solid rgba(255, 255, 255, 0.1);
-}
+/* ============================================
+   Scrollbar (subtle)
+   ============================================ */
 
-.glass-hover:hover {
-  background: rgba(255, 255, 255, 0.1);
-  border-color: rgba(255, 255, 255, 0.2);
-}
-
-/* Custom Scrollbar */
 ::-webkit-scrollbar {
-  width: 8px;
+  width: 6px;
+  height: 6px;
 }
 
 ::-webkit-scrollbar-track {
-  background: rgba(0, 0, 0, 0.2);
+  background: transparent;
 }
 
 ::-webkit-scrollbar-thumb {
-  background: rgba(255, 255, 255, 0.1);
-  border-radius: 4px;
+  background: oklch(85% 0.008 250);
+  border-radius: 3px;
 }
 
 ::-webkit-scrollbar-thumb:hover {
-  background: rgba(255, 255, 255, 0.2);
+  background: oklch(75% 0.008 250);
 }
 
-/* Layout fixes */
-main:has(#login-page) {
-  padding-left: 0 !important;
+/* ============================================
+   Utilities
+   ============================================ */
+
+/* Card surface */
+.surface {
+  background: var(--surface);
+  border: 1px solid var(--border);
+  border-radius: var(--r-lg);
+  box-shadow: var(--shadow-sm);
 }
 
-@media (max-width: 1024px) {
-  main {
-    padding-left: 0 !important;
+.surface-hover:hover {
+  border-color: var(--border-hover);
+  box-shadow: var(--shadow-md);
+}
+
+/* Monospace utility */
+.font-mono {
+  font-family: var(--font-mono);
+}
+
+/* ============================================
+   Responsive — mobile nav
+   ============================================ */
+
+@media (max-width: 768px) {
+  :root {
+    --navbar-height: 52px;
+  }
+
+  .field-control {
+    font-size: 16px; /* prevent iOS zoom */
   }
 }

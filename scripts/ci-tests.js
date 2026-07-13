@@ -165,6 +165,39 @@ async function testDnsRecordFiltering() {
     );
 }
 
+async function testPaginationAndBatchConcurrency() {
+    const { collectAllPages } = await jiti.import(path.join(projectRoot, 'src/lib/pagination.ts'));
+    const { mapWithConcurrency } = await jiti.import(path.join(projectRoot, 'src/lib/batch.ts'));
+
+    const requestedPages = [];
+    const items = await collectAllPages(2, async (pageNumber) => {
+        requestedPages.push(pageNumber);
+        const pages = [[1, 2], [3, 4], [5]];
+        return { items: pages[pageNumber - 1] || [], totalCount: 5 };
+    });
+
+    assert.deepEqual(items, [1, 2, 3, 4, 5], 'Pagination must collect every page');
+    assert.deepEqual(requestedPages, [1, 2, 3], 'Pagination must stop after reaching totalCount');
+
+    let activeTasks = 0;
+    let maxActiveTasks = 0;
+    const results = await mapWithConcurrency([1, 2, 3, 4, 5, 6, 7], 3, async (value) => {
+        activeTasks += 1;
+        maxActiveTasks = Math.max(maxActiveTasks, activeTasks);
+        await new Promise(resolve => setTimeout(resolve, 5));
+        activeTasks -= 1;
+        return value * 2;
+    });
+
+    assert.deepEqual(results, [2, 4, 6, 8, 10, 12, 14], 'Batch results must preserve input order');
+    assert.ok(maxActiveTasks <= 3, 'Batch execution must respect the concurrency limit');
+    await assert.rejects(
+        () => mapWithConcurrency([1], 0, async value => value),
+        /positive integer/,
+        'Invalid concurrency must be rejected'
+    );
+}
+
 async function testDnsImportPreview() {
     const { createDnsImportPreview, createDomainBackup } = await jiti.import(
         path.join(projectRoot, 'src/lib/dns-import.ts')
@@ -339,6 +372,7 @@ async function main() {
         ['log CSV export', testLogCsvExport],
         ['DNS history filtering', testDnsHistoryFiltering],
         ['DNS record filtering', testDnsRecordFiltering],
+        ['pagination and batch concurrency', testPaginationAndBatchConcurrency],
         ['DNS import preview', testDnsImportPreview],
         ['AccessKey and backup safety', testAccessKeyAndBackupSafety],
     ];

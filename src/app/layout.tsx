@@ -18,9 +18,22 @@ export default function RootLayout({
   children: React.ReactNode;
 }>) {
   return (
-    <html lang="zh-CN">
-      <body className={`${inter.className} min-h-screen bg-black/90 text-white selection:bg-blue-500/30`}>
-        <div className="fixed inset-0 bg-[url('/grid.svg')] bg-center [mask-image:linear-gradient(180deg,white,rgba(255,255,255,0))] pointer-events-none opacity-20" />
+    <html lang="zh-CN" suppressHydrationWarning>
+      <head>
+        <script
+          dangerouslySetInnerHTML={{
+            __html: `(function(){try{var t=localStorage.getItem('aliyun-dns-theme');if(t==='dark')document.documentElement.setAttribute('data-theme','dark');}catch(e){}})()`,
+          }}
+        />
+      </head>
+      <body
+        className={inter.className}
+        style={{
+          backgroundColor: 'var(--bg)',
+          color: 'var(--fg)',
+          fontFamily: 'var(--font-sans)',
+        }}
+      >
         <ToastProvider>
           <ConfirmProvider>
             <LayoutWrapper>{children}</LayoutWrapper>

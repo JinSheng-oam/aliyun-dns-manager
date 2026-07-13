@@ -23,19 +23,33 @@ import {
 } from '@/lib/auth';
 import { getErrorMessage } from '@/lib/errors';
 import { createAppDataBackup, parseAndValidateBackup, restoreAppDataBackup } from '@/lib/backup-manager';
+import { mapWithConcurrency } from '@/lib/batch';
+
+const DNS_BATCH_CONCURRENCY = 5;
 
 type BatchOperationError = {
     error: string;
     id?: string;
+    label: string;
     record?: { rr: string; type: string; value: string; ttl: number; status?: 'Enable' | 'Disable' };
+};
+
+type BatchOperationSummary = {
+    total: number;
+    succeeded: number;
+    failed: number;
 };
 
 function getRequestIp(forwardedFor: string | null): string {
     return forwardedFor?.split(',')[0]?.trim() || 'unknown';
 }
 
-function isBatchOperationError(result: void | BatchOperationError): result is BatchOperationError {
+function isBatchOperationError(result: BatchOperationError | undefined): result is BatchOperationError {
     return Boolean(result && result.error);
+}
+
+function summarizeBatch(total: number, failures: BatchOperationError[]): BatchOperationSummary {
+    return { total, succeeded: total - failures.length, failed: failures.length };
 }
 
 function dnsChangeContext(
@@ -52,7 +66,16 @@ async function isCurrentAdminSessionValid(): Promise<boolean> {
     return verifyAdminSessionToken(cookieStore.get(getAuthCookieName())?.value);
 }
 
+async function getSessionRejection(): Promise<{ success: false; error: string } | null> {
+    return (await isCurrentAdminSessionValid())
+        ? null
+        : { success: false, error: '登录会话已失效，请重新登录' };
+}
+
 export async function getAccessKeysAction() {
+    const sessionRejection = await getSessionRejection();
+    if (sessionRejection) return sessionRejection;
+
     try {
         const keys = await getAccessKeys();
         return { success: true, data: keys };
@@ -67,6 +90,9 @@ export async function getAccessKeysAction() {
 }
 
 export async function addAccessKeyAction(name: string, accessKeyId: string, accessKeySecret: string) {
+    const sessionRejection = await getSessionRejection();
+    if (sessionRejection) return sessionRejection;
+
     try {
         const newKey: AccessKey = {
             id: Math.random().toString(36).substring(7),
@@ -95,6 +121,9 @@ export async function addAccessKeyAction(name: string, accessKeyId: string, acce
 }
 
 export async function deleteAccessKeyAction(id: string) {
+    const sessionRejection = await getSessionRejection();
+    if (sessionRejection) return sessionRejection;
+
     try {
         await deleteAccessKey(id);
 
@@ -116,6 +145,9 @@ export async function deleteAccessKeyAction(id: string) {
 }
 
 export async function updateAccessKeyAction(id: string, name: string, accessKeyId: string, accessKeySecret: string) {
+    const sessionRejection = await getSessionRejection();
+    if (sessionRejection) return sessionRejection;
+
     try {
         const existingKey = await getAccessKeyById(id);
         if (!existingKey) {
@@ -149,6 +181,9 @@ export async function updateAccessKeyAction(id: string, name: string, accessKeyI
 // DNS Actions
 
 export async function listDomainsAction(keyId: string) {
+    const sessionRejection = await getSessionRejection();
+    if (sessionRejection) return sessionRejection;
+
     try {
         const key = await getAccessKeyById(keyId);
         if (!key) throw new Error('Access Key not found');
@@ -161,6 +196,9 @@ export async function listDomainsAction(keyId: string) {
 }
 
 export async function listDnsRecordsAction(keyId: string, domain: string) {
+    const sessionRejection = await getSessionRejection();
+    if (sessionRejection) return sessionRejection;
+
     try {
         const key = await getAccessKeyById(keyId);
         if (!key) throw new Error('Access Key not found');
@@ -173,6 +211,9 @@ export async function listDnsRecordsAction(keyId: string, domain: string) {
 }
 
 export async function addDnsRecordAction(keyId: string, domain: string, rr: string, type: string, value: string, ttl: number = 600) {
+    const sessionRejection = await getSessionRejection();
+    if (sessionRejection) return sessionRejection;
+
     try {
         const key = await getAccessKeyById(keyId);
         if (!key) throw new Error('Access Key not found');
@@ -195,6 +236,9 @@ export async function addDnsRecordAction(keyId: string, domain: string, rr: stri
 }
 
 export async function updateDnsRecordAction(keyId: string, domain: string, previous: DnsChangeRecord, rr: string, type: string, value: string, ttl: number = 600) {
+    const sessionRejection = await getSessionRejection();
+    if (sessionRejection) return sessionRejection;
+
     try {
         const key = await getAccessKeyById(keyId);
         if (!key) throw new Error('Access Key not found');
@@ -217,6 +261,9 @@ export async function updateDnsRecordAction(keyId: string, domain: string, previ
 }
 
 export async function deleteDnsRecordAction(keyId: string, domain: string, record: DnsChangeRecord) {
+    const sessionRejection = await getSessionRejection();
+    if (sessionRejection) return sessionRejection;
+
     try {
         const key = await getAccessKeyById(keyId);
         if (!key) throw new Error('Access Key not found');
@@ -237,6 +284,9 @@ export async function deleteDnsRecordAction(keyId: string, domain: string, recor
 }
 
 export async function setDnsRecordStatusAction(keyId: string, domain: string, record: DnsChangeRecord, status: 'Enable' | 'Disable') {
+    const sessionRejection = await getSessionRejection();
+    if (sessionRejection) return sessionRejection;
+
     try {
         const key = await getAccessKeyById(keyId);
         if (!key) throw new Error('Access Key not found');
@@ -259,29 +309,39 @@ export async function setDnsRecordStatusAction(keyId: string, domain: string, re
 }
 
 export async function batchDeleteDnsRecordsAction(keyId: string, domain: string, records: DnsChangeRecord[]) {
+    const sessionRejection = await getSessionRejection();
+    if (sessionRejection) return sessionRejection;
+
     try {
         const key = await getAccessKeyById(keyId);
         if (!key) throw new Error('Access Key not found');
 
-        const promises = records.map(record =>
-            AliyunDnsClient.deleteRecord(key.accessKeyId, key.accessKeySecret, record.recordId!)
-                .catch(error => ({ error: getErrorMessage(error, 'Failed to delete DNS record'), id: record.recordId }))
-        );
-
-        const results = await Promise.all(promises);
+        const results = await mapWithConcurrency<DnsChangeRecord, BatchOperationError | undefined>(records, DNS_BATCH_CONCURRENCY, async record => {
+            try {
+                await AliyunDnsClient.deleteRecord(key.accessKeyId, key.accessKeySecret, record.recordId!);
+                return undefined;
+            } catch (error) {
+                return {
+                    error: getErrorMessage(error, 'Failed to delete DNS record'),
+                    id: record.recordId,
+                    label: `${record.rr} ${record.type} ${record.value}`,
+                };
+            }
+        });
         const errors = results.filter(isBatchOperationError);
+        const summary = summarizeBatch(records.length, errors);
 
         revalidatePath('/dns');
 
         if (errors.length > 0) {
             const ip = getRequestIp((await headers()).get('x-forwarded-for'));
             await logOperation('Batch Delete DNS', `Failed to delete ${errors.length}/${records.length} records`, 'failure', ip, JSON.stringify(errors), dnsChangeContext(domain, 'batch-delete', records));
-            return { success: false, error: `部分删除失败: ${errors.length} 条记录未删除` };
+            return { success: false, error: `批量删除完成，${errors.length} 条记录删除失败`, summary, failures: errors };
         }
 
         const ip = getRequestIp((await headers()).get('x-forwarded-for'));
         await logOperation('Batch Delete DNS', `Deleted ${records.length} records`, 'success', ip, undefined, dnsChangeContext(domain, 'batch-delete', records));
-        return { success: true };
+        return { success: true, summary, failures: [] as BatchOperationError[] };
     } catch (error: unknown) {
         const ip = getRequestIp((await headers()).get('x-forwarded-for'));
         const message = getErrorMessage(error, 'Failed to delete records');
@@ -291,17 +351,27 @@ export async function batchDeleteDnsRecordsAction(keyId: string, domain: string,
 }
 
 export async function batchSetDnsRecordsStatusAction(keyId: string, domain: string, records: DnsChangeRecord[], status: 'Enable' | 'Disable') {
+    const sessionRejection = await getSessionRejection();
+    if (sessionRejection) return sessionRejection;
+
     try {
         const key = await getAccessKeyById(keyId);
         if (!key) throw new Error('Access Key not found');
 
-        const promises = records.map(record =>
-            AliyunDnsClient.setRecordStatus(key.accessKeyId, key.accessKeySecret, record.recordId!, status)
-                .catch(error => ({ error: getErrorMessage(error, 'Failed to set DNS record status'), id: record.recordId }))
-        );
-
-        const results = await Promise.all(promises);
+        const results = await mapWithConcurrency<DnsChangeRecord, BatchOperationError | undefined>(records, DNS_BATCH_CONCURRENCY, async record => {
+            try {
+                await AliyunDnsClient.setRecordStatus(key.accessKeyId, key.accessKeySecret, record.recordId!, status);
+                return undefined;
+            } catch (error) {
+                return {
+                    error: getErrorMessage(error, 'Failed to set DNS record status'),
+                    id: record.recordId,
+                    label: `${record.rr} ${record.type} ${record.value}`,
+                };
+            }
+        });
         const errors = results.filter(isBatchOperationError);
+        const summary = summarizeBatch(records.length, errors);
 
         revalidatePath('/dns');
 
@@ -309,13 +379,13 @@ export async function batchSetDnsRecordsStatusAction(keyId: string, domain: stri
             const ip = getRequestIp((await headers()).get('x-forwarded-for'));
             const changedRecords = records.map(record => ({ ...record, status }));
             await logOperation('Batch Set Status', `Failed to set status ${status} for ${errors.length}/${records.length} records`, 'failure', ip, JSON.stringify(errors), dnsChangeContext(domain, 'batch-status', changedRecords));
-            return { success: false, error: `部分状态更新失败: ${errors.length} 条记录未更新` };
+            return { success: false, error: `批量状态更新完成，${errors.length} 条记录更新失败`, summary, failures: errors };
         }
 
         const ip = getRequestIp((await headers()).get('x-forwarded-for'));
         const changedRecords = records.map(record => ({ ...record, status }));
         await logOperation('Batch Set Status', `Set status ${status} for ${records.length} records`, 'success', ip, undefined, dnsChangeContext(domain, 'batch-status', changedRecords));
-        return { success: true };
+        return { success: true, summary, failures: [] as BatchOperationError[] };
     } catch (error: unknown) {
         const ip = getRequestIp((await headers()).get('x-forwarded-for'));
         const message = getErrorMessage(error, 'Failed to set status');
@@ -330,11 +400,14 @@ export async function batchAddDnsRecordsAction(
     domain: string,
     records: { rr: string; type: string; value: string; ttl: number; status?: 'Enable' | 'Disable' }[]
 ) {
+    const sessionRejection = await getSessionRejection();
+    if (sessionRejection) return sessionRejection;
+
     try {
         const key = await getAccessKeyById(keyId);
         if (!key) throw new Error('Access Key not found');
 
-        const promises = records.map(async record => {
+        const results = await mapWithConcurrency<typeof records[number], BatchOperationError | undefined>(records, DNS_BATCH_CONCURRENCY, async record => {
             try {
                 const recordId = await AliyunDnsClient.addRecord(
                     key.accessKeyId,
@@ -363,24 +436,27 @@ export async function batchAddDnsRecordsAction(
                     }
                 }
             } catch (error) {
-                return { error: getErrorMessage(error, 'Failed to add DNS record'), record };
+                return {
+                    error: getErrorMessage(error, 'Failed to add DNS record'),
+                    label: `${record.rr} ${record.type} ${record.value}`,
+                    record,
+                };
             }
         });
-
-        const results = await Promise.all(promises);
         const errors = results.filter(isBatchOperationError);
+        const summary = summarizeBatch(records.length, errors);
 
         revalidatePath('/dns');
 
         if (errors.length > 0) {
             const ip = getRequestIp((await headers()).get('x-forwarded-for'));
             await logOperation('Batch Add DNS', `Failed to add ${errors.length}/${records.length} records`, 'failure', ip, JSON.stringify(errors), dnsChangeContext(domain, 'batch-add', records));
-            return { success: false, error: `部分添加失败: ${errors.length} 条记录未添加`, errors };
+            return { success: false, error: `批量导入完成，${errors.length} 条记录添加失败`, summary, failures: errors };
         }
 
         const ip = getRequestIp((await headers()).get('x-forwarded-for'));
         await logOperation('Batch Add DNS', `Added ${records.length} records`, 'success', ip, undefined, dnsChangeContext(domain, 'batch-add', records));
-        return { success: true };
+        return { success: true, summary, failures: [] as BatchOperationError[] };
     } catch (error: unknown) {
         const ip = getRequestIp((await headers()).get('x-forwarded-for'));
         const message = getErrorMessage(error, 'Failed to add records');
@@ -392,6 +468,9 @@ export async function batchAddDnsRecordsAction(
 // Logs Actions
 
 export async function getLogsAction() {
+    const sessionRejection = await getSessionRejection();
+    if (sessionRejection) return sessionRejection;
+
     try {
         const logs = await getLogs();
         return { success: true, data: logs };
@@ -401,6 +480,9 @@ export async function getLogsAction() {
 }
 
 export async function getDnsHistoryAction(domain: string) {
+    const sessionRejection = await getSessionRejection();
+    if (sessionRejection) return sessionRejection;
+
     try {
         return { success: true, data: filterDnsChangeLogs(await getLogs(), domain) };
     } catch {

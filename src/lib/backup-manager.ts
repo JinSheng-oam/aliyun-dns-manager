@@ -4,7 +4,9 @@ import { randomUUID } from 'crypto';
 import { readAccessKeyBackupData, validateAccessKeyBackupData } from './key-manager';
 import type { LogEntry } from './logger';
 
-const DATA_DIR = path.join(process.cwd(), 'data');
+const DATA_DIR = process.env.APP_DATA_DIR?.trim()
+    ? path.resolve(/* turbopackIgnore: true */ process.env.APP_DATA_DIR.trim())
+    : path.join(process.cwd(), 'data');
 const ACCESS_KEY_FILE = path.join(DATA_DIR, 'access_keys.json');
 const LOG_FILE = path.join(DATA_DIR, 'logs.json');
 const BACKUP_FORMAT = 'aliyun-dns-manager-backup';
