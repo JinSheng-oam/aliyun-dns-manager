@@ -1,5 +1,5 @@
 import { AlertTriangle, CheckCircle2, ShieldCheck } from 'lucide-react';
-import { getSecurityConfigItems, type SecurityConfigStatus } from '@/lib/security-config';
+import { getSecurityConfigItems, isReadOnlyModeEnabled, type SecurityConfigStatus } from '@/lib/security-config';
 import { BackupManager } from './BackupManager';
 
 export const dynamic = 'force-dynamic';
@@ -85,7 +85,7 @@ export default function SecurityPage() {
         })}
       </div>
 
-      <BackupManager />
+      <BackupManager readOnly={isReadOnlyModeEnabled()} />
 
       <div className="rounded-lg px-4 py-3 text-xs leading-relaxed" style={{ backgroundColor: 'var(--surface-hover)', color: 'var(--muted)' }}>
         修改配置后请重启应用，让新的环境变量生效。若已部署到公网，建议同时使用 HTTPS、反向代理和额外访问控制。

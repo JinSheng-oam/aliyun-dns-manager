@@ -2,7 +2,7 @@ services:
   aliyun-dns-manager:
     build:
       context: .
-    image: aliyun-dns-manager:0.4.0
+    image: aliyun-dns-manager:0.6.0
     container_name: aliyun-dns-manager
     restart: unless-stopped
     env_file:

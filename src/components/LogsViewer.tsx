@@ -2,6 +2,7 @@
 
 import { useState, useEffect, useCallback, useDeferredValue } from 'react';
 import type { LogEntry } from '@/lib/logger';
+import { isHighRiskLog } from '@/lib/log-risk';
 import { getLogsAction } from '@/app/actions';
 import { X, Loader2, RotateCw, Download, Search } from 'lucide-react';
 import { Button } from '@/components/ui/Button';
@@ -14,12 +15,14 @@ interface LogsViewerProps {
 }
 
 type StatusFilter = 'all' | LogEntry['status'];
+type RiskFilter = 'all' | 'high';
 
 export function LogsViewer({ isOpen, onClose }: LogsViewerProps) {
   const [logs, setLogs] = useState<LogEntry[]>([]);
   const [isLoading, setIsLoading] = useState(false);
   const [searchTerm, setSearchTerm] = useState('');
   const [statusFilter, setStatusFilter] = useState<StatusFilter>('all');
+  const [riskFilter, setRiskFilter] = useState<RiskFilter>('all');
   const deferredSearchTerm = useDeferredValue(searchTerm.trim().toLowerCase());
 
   const fetchLogs = useCallback(async () => {
@@ -38,6 +41,7 @@ export function LogsViewer({ isOpen, onClose }: LogsViewerProps) {
 
   const filteredLogs = logs.filter((log) => {
     if (statusFilter !== 'all' && log.status !== statusFilter) return false;
+    if (riskFilter === 'high' && !isHighRiskLog(log)) return false;
     if (!deferredSearchTerm) return true;
     return [log.action, log.ip, log.details, log.error]
       .some((value) => value?.toLowerCase().includes(deferredSearchTerm));
@@ -115,6 +119,16 @@ export function LogsViewer({ isOpen, onClose }: LogsViewerProps) {
               { value: 'failure', label: '仅失败' },
             ]}
           />
+          <Select
+            ariaLabel="筛选日志风险"
+            className="sm:w-32"
+            value={riskFilter}
+            onValueChange={(v) => setRiskFilter(v as RiskFilter)}
+            options={[
+              { value: 'all', label: '全部风险' },
+              { value: 'high', label: '仅高风险' },
+            ]}
+          />
         </div>
 
         {/* Table */}
@@ -150,7 +164,14 @@ export function LogsViewer({ isOpen, onClose }: LogsViewerProps) {
                       <td className="px-4 py-2.5 font-mono whitespace-nowrap" style={{ color: 'var(--muted)' }}>
                         {new Date(log.timestamp).toLocaleString()}
                       </td>
-                      <td className="px-4 py-2.5 font-medium" style={{ color: 'var(--fg)' }}>{log.action}</td>
+                      <td className="px-4 py-2.5 font-medium" style={{ color: 'var(--fg)' }}>
+                        <div className="flex items-center gap-2">
+                          <span>{log.action}</span>
+                          {isHighRiskLog(log) && (
+                            <span className="rounded px-1.5 py-0.5 text-[10px] font-semibold" style={{ backgroundColor: 'var(--danger-light)', color: 'var(--danger)' }}>高风险</span>
+                          )}
+                        </div>
+                      </td>
                       <td className="px-4 py-2.5 font-mono" style={{ color: 'var(--muted)' }}>{log.ip}</td>
                       <td className="px-4 py-2.5 max-w-xs truncate" title={log.details}>
                         <span style={{ color: 'var(--fg)' }}>{log.details}</span>

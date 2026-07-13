@@ -3,14 +3,16 @@ import path from 'path';
 import { randomUUID } from 'crypto';
 import { readAccessKeyBackupData, validateAccessKeyBackupData } from './key-manager';
 import type { LogEntry } from './logger';
+import { readDnsSnapshotsForBackup, validateDnsSnapshots, type DomainSnapshot } from './dns-snapshots';
 
 const DATA_DIR = process.env.APP_DATA_DIR?.trim()
     ? path.resolve(/* turbopackIgnore: true */ process.env.APP_DATA_DIR.trim())
     : path.join(process.cwd(), 'data');
 const ACCESS_KEY_FILE = path.join(DATA_DIR, 'access_keys.json');
 const LOG_FILE = path.join(DATA_DIR, 'logs.json');
+const DNS_SNAPSHOT_FILE = path.join(DATA_DIR, 'dns_snapshots.json');
 const BACKUP_FORMAT = 'aliyun-dns-manager-backup';
-const BACKUP_VERSION = 1;
+const BACKUP_VERSION = 2;
 const MAX_BACKUP_BYTES = 5 * 1024 * 1024;
 const MAX_LOG_ENTRIES = 1000;
 
@@ -21,6 +23,7 @@ export interface AppDataBackup {
     data: {
         accessKeys: string | null;
         logs: LogEntry[];
+        dnsSnapshots: DomainSnapshot[];
     };
 }
 
@@ -61,9 +64,10 @@ async function readLogsForBackup(): Promise<LogEntry[]> {
 }
 
 export async function createAppDataBackup(): Promise<AppDataBackup> {
-    const [accessKeys, logs] = await Promise.all([
+    const [accessKeys, logs, dnsSnapshots] = await Promise.all([
         readAccessKeyBackupData(),
         readLogsForBackup(),
+        readDnsSnapshotsForBackup(),
     ]);
 
     return {
@@ -73,6 +77,7 @@ export async function createAppDataBackup(): Promise<AppDataBackup> {
         data: {
             accessKeys,
             logs,
+            dnsSnapshots,
         },
     };
 }
@@ -82,31 +87,56 @@ export function parseAndValidateBackup(content: string): AppDataBackup {
         throw new Error('备份文件超过 5 MB，已拒绝恢复');
     }
 
-    const parsed = JSON.parse(content) as Partial<AppDataBackup>;
+    const parsed = JSON.parse(content) as {
+        format?: unknown;
+        version?: unknown;
+        createdAt?: unknown;
+        data?: { accessKeys?: unknown; logs?: unknown; dnsSnapshots?: unknown };
+    };
 
     if (
         parsed.format !== BACKUP_FORMAT ||
-        parsed.version !== BACKUP_VERSION ||
+        (parsed.version !== 1 && parsed.version !== BACKUP_VERSION) ||
         typeof parsed.createdAt !== 'string' ||
         Number.isNaN(Date.parse(parsed.createdAt)) ||
-        !parsed.data ||
-        (parsed.data.accessKeys !== null && typeof parsed.data.accessKeys !== 'string') ||
-        !Array.isArray(parsed.data.logs) ||
-        parsed.data.logs.length > MAX_LOG_ENTRIES ||
-        !parsed.data.logs.every(isLogEntry)
+        !parsed.data
     ) {
         throw new Error('备份文件格式或版本不受支持');
     }
 
-    if (parsed.data.accessKeys !== null) {
+    const data = parsed.data;
+    if (
+        (data.accessKeys !== null && typeof data.accessKeys !== 'string') ||
+        !Array.isArray(data.logs) ||
+        data.logs.length > MAX_LOG_ENTRIES ||
+        !data.logs.every(isLogEntry) ||
+        (parsed.version === BACKUP_VERSION && !Array.isArray(data.dnsSnapshots))
+    ) {
+        throw new Error('备份文件格式或版本不受支持');
+    }
+
+    if (data.accessKeys !== null) {
         try {
-            validateAccessKeyBackupData(parsed.data.accessKeys);
+            validateAccessKeyBackupData(data.accessKeys);
         } catch {
             throw new Error('备份中的 AccessKey 无法使用当前 ENCRYPTION_KEY 解密');
         }
     }
 
-    return parsed as AppDataBackup;
+    const dnsSnapshots = parsed.version === 1
+        ? []
+        : validateDnsSnapshots(data.dnsSnapshots);
+
+    return {
+        format: BACKUP_FORMAT,
+        version: BACKUP_VERSION,
+        createdAt: parsed.createdAt,
+        data: {
+            accessKeys: data.accessKeys,
+            logs: data.logs,
+            dnsSnapshots,
+        },
+    };
 }
 
 async function readExistingFile(filePath: string): Promise<string | null> {
@@ -140,17 +170,20 @@ async function replaceFile(filePath: string, content: string | null): Promise<vo
 export async function restoreAppDataBackup(backup: AppDataBackup): Promise<void> {
     await fs.mkdir(DATA_DIR, { recursive: true });
 
-    const [previousAccessKeys, previousLogs] = await Promise.all([
+    const [previousAccessKeys, previousLogs, previousDnsSnapshots] = await Promise.all([
         readExistingFile(ACCESS_KEY_FILE),
         readExistingFile(LOG_FILE),
+        readExistingFile(DNS_SNAPSHOT_FILE),
     ]);
 
     try {
         await replaceFile(ACCESS_KEY_FILE, backup.data.accessKeys);
         await replaceFile(LOG_FILE, JSON.stringify(backup.data.logs, null, 2));
+        await replaceFile(DNS_SNAPSHOT_FILE, JSON.stringify(backup.data.dnsSnapshots, null, 2));
     } catch (error) {
         await replaceFile(ACCESS_KEY_FILE, previousAccessKeys);
         await replaceFile(LOG_FILE, previousLogs);
+        await replaceFile(DNS_SNAPSHOT_FILE, previousDnsSnapshots);
         throw error;
     }
 }

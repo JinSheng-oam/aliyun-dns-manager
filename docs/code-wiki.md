@@ -4,12 +4,12 @@
 
 ## 当前状态
 
-- 当前代码版本：`0.4.0`
+- 当前代码版本：`0.6.0`
 - 最新已发布版本：`v0.3.2`
 - 默认 README：中文 `README.md`
 - 英文 README：`README.en.md`
 - 中文镜像 README：`README.zh-CN.md`
-- 待发布版本：`v0.4.0`
+- 待发布版本：`v0.6.0`
 - 默认分支：`master`
 - CI：GitHub Actions `CI`
 - 自动发版：GitHub Actions `Release`
@@ -119,6 +119,7 @@ aliyun-dns-manager/
 | `FORCE_HTTPS_COOKIE` | 是否强制 Secure Cookie | HTTPS 部署时可设为 `true` |
 | `LOGIN_WINDOW_SECONDS` | 登录失败限流窗口 | 默认 60 秒 |
 | `LOGIN_MAX_ATTEMPTS` | 限流窗口内最大失败次数 | 默认 5 次 |
+| `READONLY_MODE` | 服务器端只读模式 | `true` 时拒绝 AccessKey、DNS 和恢复写操作 |
 
 ## 数据存储
 
@@ -126,6 +127,7 @@ aliyun-dns-manager/
 
 - `data/access_keys.json`：AccessKey 列表，加密保存
 - `data/logs.json`：操作日志，最多保留最近 1000 条
+- `data/dns_snapshots.json`：DNS 自动和手动快照，每个 AccessKey/域名最多 20 个
 
 AccessKey 加密逻辑在 `src/lib/key-manager.ts`：
 
@@ -212,6 +214,21 @@ README 中的最小权限示例应覆盖当前代码实际调用的 API：
 
 批量任务使用 `src/lib/batch.ts` 的受控并发执行器，当前并发数为 5。批量新增、删除和状态修改均保留输入顺序，并返回失败记录明细。
 
+## DNS 快照和恢复
+
+- `src/lib/dns-snapshots.ts` 负责快照存储、格式校验、保留数量和恢复 diff。
+- DNS 写操作在调用阿里云修改 API 前通过 `createAutomaticDnsSnapshot` 保存当前完整记录。
+- 恢复计划按 RR、类型和值识别记录，分别产生新增、TTL/状态更新、删除和不变项。
+- 恢复前再次创建安全快照；应用恢复计划失败后重新拉取当前状态，并根据安全快照生成反向计划回滚。
+- 快照同时绑定本地 AccessKey ID 和域名，Server Action 会拒绝跨账号或跨域名恢复。
+
+## DNS 健康检查
+
+- `src/lib/dns-health.ts` 执行纯配置检查，包括 IP/主机名格式、TTL、暂停、重复、CNAME 冲突和自循环。
+- `src/lib/dns-health-live.ts` 使用 Node.js DNS resolver 核验公网 A、AAAA、CNAME、MX 和 TXT 结果，单次查询超时 5 秒。
+- 公网结果不一致和查询失败均作为 warning，避免把传播延迟误判为配置错误。
+- 域名概览仅执行配置检查，使用并发 3 拉取记录，最多接收 200 个去重域名。
+
 ## 数据备份和恢复
 
 服务端逻辑位于 `src/lib/backup-manager.ts`，界面位于 `src/app/security/BackupManager.tsx`。
@@ -219,10 +236,11 @@ README 中的最小权限示例应覆盖当前代码实际调用的 API：
 备份格式：
 
 - `format`：固定为 `aliyun-dns-manager-backup`
-- `version`：当前为 `1`
+- `version`：当前为 `2`，读取时兼容版本 `1`
 - `createdAt`：备份生成时间
 - `data.accessKeys`：`access_keys.json` 的原始加密内容，文件不存在时为 `null`
 - `data.logs`：最多 1000 条操作日志
+- `data.dnsSnapshots`：DNS 快照；旧版备份恢复时自动视为空数组
 
 安全边界：
 
@@ -317,6 +335,8 @@ start.bat
 - 备份恢复成功路径，以及无效备份写入前拒绝
 - 阿里云列表分页收集完整性
 - 批量任务并发上限和结果顺序
+- DNS 快照恢复计划和应用备份中的快照恢复
+- DNS 配置健康检查规则
 
 `e2e/` 覆盖：
 

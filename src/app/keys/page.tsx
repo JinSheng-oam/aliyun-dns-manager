@@ -1,6 +1,7 @@
 import { getAccessKeysAction } from '@/app/actions';
 import { KeyList } from './components/KeyList';
 import { AlertTriangle } from 'lucide-react';
+import { isReadOnlyModeEnabled } from '@/lib/security-config';
 
 export const dynamic = 'force-dynamic';
 
@@ -30,7 +31,7 @@ export default async function KeysPage() {
         </div>
       )}
 
-      <KeyList initialKeys={keys} readError={result.success ? undefined : result.error} />
+      <KeyList initialKeys={keys} readError={result.success ? undefined : result.error} readOnly={isReadOnlyModeEnabled()} />
     </div>
   );
 }

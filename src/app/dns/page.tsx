@@ -1,6 +1,7 @@
 import { getAccessKeysAction } from '@/app/actions';
 import { DnsManager } from './components/DnsManager';
 import { AlertTriangle } from 'lucide-react';
+import { isReadOnlyModeEnabled } from '@/lib/security-config';
 
 export const dynamic = 'force-dynamic';
 
@@ -32,7 +33,7 @@ export default async function DnsPage() {
         </div>
       )}
 
-      {result.success && <DnsManager initialKeys={keys} />}
+      {result.success && <DnsManager initialKeys={keys} readOnly={isReadOnlyModeEnabled()} />}
     </div>
   );
 }

@@ -20,6 +20,7 @@ const operationLabels: Record<DnsChangeOperation, string> = {
   'batch-add': '批量新增',
   'batch-delete': '批量删除',
   'batch-status': '批量变更状态',
+  restore: '快照恢复',
 };
 
 function getHistorySummary(log: LogEntry): string {

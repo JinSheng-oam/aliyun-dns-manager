@@ -12,6 +12,10 @@ function getTrimmedEnv(name: string): string {
     return process.env[name]?.trim() || '';
 }
 
+export function isReadOnlyModeEnabled(): boolean {
+    return getTrimmedEnv('READONLY_MODE').toLowerCase() === 'true';
+}
+
 function isPlaceholderValue(value: string): boolean {
     return (
         value.startsWith('your_') ||
@@ -53,6 +57,8 @@ function getSecretCheck(
 
 export function getSecurityConfigItems(): SecurityConfigItem[] {
     const useSecureCookie = getTrimmedEnv('FORCE_HTTPS_COOKIE') === 'true';
+    const readOnlyMode = isReadOnlyModeEnabled();
+    const customDataDir = getTrimmedEnv('APP_DATA_DIR');
     const adminPassword = getSecretCheck(
         'ADMIN_PASSWORD',
         true,
@@ -100,6 +106,20 @@ export function getSecurityConfigItems(): SecurityConfigItem[] {
             status: useSecureCookie ? 'ok' : 'warning',
             summary: useSecureCookie ? '已启用 HTTPS Cookie' : '未强制 HTTPS Cookie',
             advice: '通过 HTTPS 和反向代理公开访问时建议设为 true；纯 HTTP 本地访问请保持关闭。',
+        },
+        {
+            key: 'READONLY_MODE',
+            title: '只读运行模式',
+            status: readOnlyMode ? 'ok' : 'warning',
+            summary: readOnlyMode ? '已启用，只允许查询、检测和导出' : '未启用，管理员可以修改 DNS 数据',
+            advice: '用于展示、审计或临时观察时可设为 true；需要管理 DNS 时保持 false。',
+        },
+        {
+            key: 'APP_DATA_DIR',
+            title: '数据保存目录',
+            status: 'ok',
+            summary: customDataDir ? '已使用自定义数据目录' : '使用项目目录下的默认 data 目录',
+            advice: '容器部署时请持久化挂载数据目录，升级前同时备份该目录。',
         },
     ];
 }

@@ -24,6 +24,16 @@ import {
 import { getErrorMessage } from '@/lib/errors';
 import { createAppDataBackup, parseAndValidateBackup, restoreAppDataBackup } from '@/lib/backup-manager';
 import { mapWithConcurrency } from '@/lib/batch';
+import {
+    createDnsRestorePlan,
+    createDomainSnapshot,
+    getDomainSnapshot,
+    listDomainSnapshots,
+    type DnsRestorePlan,
+} from '@/lib/dns-snapshots';
+import { analyzeDnsRecords, appendDnsResolutionIssues } from '@/lib/dns-health';
+import { checkLiveDnsResolution } from '@/lib/dns-health-live';
+import { isReadOnlyModeEnabled } from '@/lib/security-config';
 
 const DNS_BATCH_CONCURRENCY = 5;
 
@@ -61,6 +71,47 @@ function dnsChangeContext(
     return { category: 'dns-change', domain, operation, records, ...extra };
 }
 
+async function createAutomaticDnsSnapshot(
+    keyId: string,
+    domain: string,
+    key: AccessKey,
+    label: string
+): Promise<void> {
+    const records = await AliyunDnsClient.listRecords(key.accessKeyId, key.accessKeySecret, domain);
+    await createDomainSnapshot(keyId, domain, records, label);
+}
+
+async function applyDnsRestorePlan(key: AccessKey, domain: string, plan: DnsRestorePlan): Promise<void> {
+    // Remove conflicting records first; the caller always creates a rollback snapshot before applying the plan.
+    for (const record of plan.delete) {
+        await AliyunDnsClient.deleteRecord(key.accessKeyId, key.accessKeySecret, record.recordId);
+    }
+
+    for (const change of plan.update) {
+        if (change.current.ttl !== change.target.ttl) {
+            await AliyunDnsClient.updateRecord(
+                key.accessKeyId, key.accessKeySecret, change.current.recordId,
+                change.target.rr, change.target.type, change.target.value, change.target.ttl
+            );
+        }
+        if (change.current.status !== change.target.status) {
+            await AliyunDnsClient.setRecordStatus(
+                key.accessKeyId, key.accessKeySecret, change.current.recordId, change.target.status
+            );
+        }
+    }
+
+    for (const record of plan.add) {
+        const recordId = await AliyunDnsClient.addRecord(
+            key.accessKeyId, key.accessKeySecret, domain,
+            record.rr, record.type, record.value, record.ttl
+        );
+        if (record.status === 'Disable') {
+            await AliyunDnsClient.setRecordStatus(key.accessKeyId, key.accessKeySecret, recordId, 'Disable');
+        }
+    }
+}
+
 async function isCurrentAdminSessionValid(): Promise<boolean> {
     const cookieStore = await cookies();
     return verifyAdminSessionToken(cookieStore.get(getAuthCookieName())?.value);
@@ -70,6 +121,14 @@ async function getSessionRejection(): Promise<{ success: false; error: string } 
     return (await isCurrentAdminSessionValid())
         ? null
         : { success: false, error: '登录会话已失效，请重新登录' };
+}
+
+async function getMutationRejection(): Promise<{ success: false; error: string } | null> {
+    const sessionRejection = await getSessionRejection();
+    if (sessionRejection) return sessionRejection;
+    return isReadOnlyModeEnabled()
+        ? { success: false, error: '当前运行在只读模式，写操作已被服务器阻止' }
+        : null;
 }
 
 export async function getAccessKeysAction() {
@@ -90,7 +149,7 @@ export async function getAccessKeysAction() {
 }
 
 export async function addAccessKeyAction(name: string, accessKeyId: string, accessKeySecret: string) {
-    const sessionRejection = await getSessionRejection();
+    const sessionRejection = await getMutationRejection();
     if (sessionRejection) return sessionRejection;
 
     try {
@@ -121,7 +180,7 @@ export async function addAccessKeyAction(name: string, accessKeyId: string, acce
 }
 
 export async function deleteAccessKeyAction(id: string) {
-    const sessionRejection = await getSessionRejection();
+    const sessionRejection = await getMutationRejection();
     if (sessionRejection) return sessionRejection;
 
     try {
@@ -145,7 +204,7 @@ export async function deleteAccessKeyAction(id: string) {
 }
 
 export async function updateAccessKeyAction(id: string, name: string, accessKeyId: string, accessKeySecret: string) {
-    const sessionRejection = await getSessionRejection();
+    const sessionRejection = await getMutationRejection();
     if (sessionRejection) return sessionRejection;
 
     try {
@@ -211,13 +270,14 @@ export async function listDnsRecordsAction(keyId: string, domain: string) {
 }
 
 export async function addDnsRecordAction(keyId: string, domain: string, rr: string, type: string, value: string, ttl: number = 600) {
-    const sessionRejection = await getSessionRejection();
+    const sessionRejection = await getMutationRejection();
     if (sessionRejection) return sessionRejection;
 
     try {
         const key = await getAccessKeyById(keyId);
         if (!key) throw new Error('Access Key not found');
 
+        await createAutomaticDnsSnapshot(keyId, domain, key, '添加记录前自动快照');
         await AliyunDnsClient.addRecord(key.accessKeyId, key.accessKeySecret, domain, rr, type, value, ttl);
 
         const ip = getRequestIp((await headers()).get('x-forwarded-for'));
@@ -236,13 +296,14 @@ export async function addDnsRecordAction(keyId: string, domain: string, rr: stri
 }
 
 export async function updateDnsRecordAction(keyId: string, domain: string, previous: DnsChangeRecord, rr: string, type: string, value: string, ttl: number = 600) {
-    const sessionRejection = await getSessionRejection();
+    const sessionRejection = await getMutationRejection();
     if (sessionRejection) return sessionRejection;
 
     try {
         const key = await getAccessKeyById(keyId);
         if (!key) throw new Error('Access Key not found');
 
+        await createAutomaticDnsSnapshot(keyId, domain, key, '修改记录前自动快照');
         await AliyunDnsClient.updateRecord(key.accessKeyId, key.accessKeySecret, previous.recordId!, rr, type, value, ttl);
 
         const ip = getRequestIp((await headers()).get('x-forwarded-for'));
@@ -261,13 +322,14 @@ export async function updateDnsRecordAction(keyId: string, domain: string, previ
 }
 
 export async function deleteDnsRecordAction(keyId: string, domain: string, record: DnsChangeRecord) {
-    const sessionRejection = await getSessionRejection();
+    const sessionRejection = await getMutationRejection();
     if (sessionRejection) return sessionRejection;
 
     try {
         const key = await getAccessKeyById(keyId);
         if (!key) throw new Error('Access Key not found');
 
+        await createAutomaticDnsSnapshot(keyId, domain, key, '删除记录前自动快照');
         await AliyunDnsClient.deleteRecord(key.accessKeyId, key.accessKeySecret, record.recordId!);
 
         const ip = getRequestIp((await headers()).get('x-forwarded-for'));
@@ -284,13 +346,14 @@ export async function deleteDnsRecordAction(keyId: string, domain: string, recor
 }
 
 export async function setDnsRecordStatusAction(keyId: string, domain: string, record: DnsChangeRecord, status: 'Enable' | 'Disable') {
-    const sessionRejection = await getSessionRejection();
+    const sessionRejection = await getMutationRejection();
     if (sessionRejection) return sessionRejection;
 
     try {
         const key = await getAccessKeyById(keyId);
         if (!key) throw new Error('Access Key not found');
 
+        await createAutomaticDnsSnapshot(keyId, domain, key, '修改记录状态前自动快照');
         await AliyunDnsClient.setRecordStatus(key.accessKeyId, key.accessKeySecret, record.recordId!, status);
 
         const ip = getRequestIp((await headers()).get('x-forwarded-for'));
@@ -309,13 +372,14 @@ export async function setDnsRecordStatusAction(keyId: string, domain: string, re
 }
 
 export async function batchDeleteDnsRecordsAction(keyId: string, domain: string, records: DnsChangeRecord[]) {
-    const sessionRejection = await getSessionRejection();
+    const sessionRejection = await getMutationRejection();
     if (sessionRejection) return sessionRejection;
 
     try {
         const key = await getAccessKeyById(keyId);
         if (!key) throw new Error('Access Key not found');
 
+        await createAutomaticDnsSnapshot(keyId, domain, key, '批量删除前自动快照');
         const results = await mapWithConcurrency<DnsChangeRecord, BatchOperationError | undefined>(records, DNS_BATCH_CONCURRENCY, async record => {
             try {
                 await AliyunDnsClient.deleteRecord(key.accessKeyId, key.accessKeySecret, record.recordId!);
@@ -351,13 +415,14 @@ export async function batchDeleteDnsRecordsAction(keyId: string, domain: string,
 }
 
 export async function batchSetDnsRecordsStatusAction(keyId: string, domain: string, records: DnsChangeRecord[], status: 'Enable' | 'Disable') {
-    const sessionRejection = await getSessionRejection();
+    const sessionRejection = await getMutationRejection();
     if (sessionRejection) return sessionRejection;
 
     try {
         const key = await getAccessKeyById(keyId);
         if (!key) throw new Error('Access Key not found');
 
+        await createAutomaticDnsSnapshot(keyId, domain, key, `批量${status === 'Enable' ? '启用' : '暂停'}前自动快照`);
         const results = await mapWithConcurrency<DnsChangeRecord, BatchOperationError | undefined>(records, DNS_BATCH_CONCURRENCY, async record => {
             try {
                 await AliyunDnsClient.setRecordStatus(key.accessKeyId, key.accessKeySecret, record.recordId!, status);
@@ -400,13 +465,14 @@ export async function batchAddDnsRecordsAction(
     domain: string,
     records: { rr: string; type: string; value: string; ttl: number; status?: 'Enable' | 'Disable' }[]
 ) {
-    const sessionRejection = await getSessionRejection();
+    const sessionRejection = await getMutationRejection();
     if (sessionRejection) return sessionRejection;
 
     try {
         const key = await getAccessKeyById(keyId);
         if (!key) throw new Error('Access Key not found');
 
+        await createAutomaticDnsSnapshot(keyId, domain, key, '批量导入前自动快照');
         const results = await mapWithConcurrency<typeof records[number], BatchOperationError | undefined>(records, DNS_BATCH_CONCURRENCY, async record => {
             try {
                 const recordId = await AliyunDnsClient.addRecord(
@@ -465,6 +531,146 @@ export async function batchAddDnsRecordsAction(
     }
 }
 
+// DNS snapshots and restore
+
+export async function createDnsSnapshotAction(keyId: string, domain: string, label?: string) {
+    const sessionRejection = await getSessionRejection();
+    if (sessionRejection) return sessionRejection;
+
+    try {
+        const key = await getAccessKeyById(keyId);
+        if (!key) throw new Error('Access Key not found');
+        const records = await AliyunDnsClient.listRecords(key.accessKeyId, key.accessKeySecret, domain);
+        const snapshot = await createDomainSnapshot(keyId, domain, records, label || '手动快照');
+        const ip = getRequestIp((await headers()).get('x-forwarded-for'));
+        await logOperation('Create DNS Snapshot', `Domain: ${domain}, Records: ${records.length}`, 'success', ip);
+        return { success: true, data: snapshot };
+    } catch (error: unknown) {
+        return { success: false, error: getErrorMessage(error, '创建 DNS 快照失败') };
+    }
+}
+
+export async function listDnsSnapshotsAction(keyId: string, domain: string) {
+    const sessionRejection = await getSessionRejection();
+    if (sessionRejection) return sessionRejection;
+
+    try {
+        return { success: true, data: await listDomainSnapshots(keyId, domain) };
+    } catch (error: unknown) {
+        return { success: false, error: getErrorMessage(error, '读取 DNS 快照失败') };
+    }
+}
+
+export async function previewDnsSnapshotRestoreAction(keyId: string, domain: string, snapshotId: string) {
+    const sessionRejection = await getSessionRejection();
+    if (sessionRejection) return sessionRejection;
+
+    try {
+        const key = await getAccessKeyById(keyId);
+        if (!key) throw new Error('Access Key not found');
+        const snapshot = await getDomainSnapshot(snapshotId);
+        if (!snapshot || snapshot.keyId !== keyId || snapshot.domain !== domain.trim().toLowerCase()) {
+            throw new Error('快照不存在或不属于当前域名和 AccessKey');
+        }
+        const current = await AliyunDnsClient.listRecords(key.accessKeyId, key.accessKeySecret, domain);
+        return { success: true, data: { snapshot, plan: createDnsRestorePlan(current, snapshot.records) } };
+    } catch (error: unknown) {
+        return { success: false, error: getErrorMessage(error, '生成恢复预览失败') };
+    }
+}
+
+export async function restoreDnsSnapshotAction(keyId: string, domain: string, snapshotId: string) {
+    const sessionRejection = await getMutationRejection();
+    if (sessionRejection) return sessionRejection;
+
+    try {
+        const key = await getAccessKeyById(keyId);
+        if (!key) throw new Error('Access Key not found');
+        const snapshot = await getDomainSnapshot(snapshotId);
+        if (!snapshot || snapshot.keyId !== keyId || snapshot.domain !== domain.trim().toLowerCase()) {
+            throw new Error('快照不存在或不属于当前域名和 AccessKey');
+        }
+
+        const current = await AliyunDnsClient.listRecords(key.accessKeyId, key.accessKeySecret, domain);
+        const safetySnapshot = await createDomainSnapshot(keyId, domain, current, '恢复前自动快照');
+        const plan = createDnsRestorePlan(current, snapshot.records);
+        const summary = {
+            add: plan.add.length,
+            update: plan.update.length,
+            delete: plan.delete.length,
+            unchanged: plan.unchanged,
+        };
+
+        try {
+            await applyDnsRestorePlan(key, domain, plan);
+        } catch (restoreError: unknown) {
+            try {
+                const partialRecords = await AliyunDnsClient.listRecords(key.accessKeyId, key.accessKeySecret, domain);
+                await applyDnsRestorePlan(key, domain, createDnsRestorePlan(partialRecords, safetySnapshot.records));
+            } catch (rollbackError: unknown) {
+                throw new Error(`恢复失败且自动回滚未完成：${getErrorMessage(rollbackError)}`);
+            }
+            throw new Error(`恢复失败，已自动回滚到操作前状态：${getErrorMessage(restoreError)}`);
+        }
+
+        const ip = getRequestIp((await headers()).get('x-forwarded-for'));
+        const restoredRecords: DnsChangeRecord[] = snapshot.records.map(record => ({ ...record }));
+        await logOperation(
+            'Restore DNS Snapshot',
+            `Domain: ${domain}, Snapshot: ${snapshot.id}, Add: ${summary.add}, Update: ${summary.update}, Delete: ${summary.delete}`,
+            'success', ip, undefined, dnsChangeContext(domain, 'restore', restoredRecords)
+        );
+        revalidatePath('/dns');
+        return { success: true, summary, safetySnapshotId: safetySnapshot.id };
+    } catch (error: unknown) {
+        const ip = getRequestIp((await headers()).get('x-forwarded-for'));
+        const message = getErrorMessage(error, '恢复 DNS 快照失败');
+        await logOperation('Restore DNS Snapshot', `Domain: ${domain}`, 'failure', ip, message);
+        return { success: false, error: message };
+    }
+}
+
+// DNS health checks are read-only and never mutate DNS data.
+
+export async function checkDnsHealthAction(keyId: string, domain: string) {
+    const sessionRejection = await getSessionRejection();
+    if (sessionRejection) return sessionRejection;
+
+    try {
+        const key = await getAccessKeyById(keyId);
+        if (!key) throw new Error('Access Key not found');
+        const records = await AliyunDnsClient.listRecords(key.accessKeyId, key.accessKeySecret, domain);
+        const report = analyzeDnsRecords(domain, records);
+        const liveIssues = await checkLiveDnsResolution(domain, records);
+        return { success: true, data: appendDnsResolutionIssues(report, liveIssues) };
+    } catch (error: unknown) {
+        return { success: false, error: getErrorMessage(error, 'DNS 健康检查失败') };
+    }
+}
+
+export async function checkDomainHealthOverviewAction(keyId: string, domains: string[]) {
+    const sessionRejection = await getSessionRejection();
+    if (sessionRejection) return sessionRejection;
+
+    try {
+        const key = await getAccessKeyById(keyId);
+        if (!key) throw new Error('Access Key not found');
+        const uniqueDomains = [...new Set(domains.map(domain => domain.trim().toLowerCase()).filter(Boolean))].slice(0, 200);
+        const results = await mapWithConcurrency(uniqueDomains, 3, async domain => {
+            try {
+                const records = await AliyunDnsClient.listRecords(key.accessKeyId, key.accessKeySecret, domain);
+                const report = analyzeDnsRecords(domain, records);
+                return { domain, success: true as const, status: report.status, summary: report.summary };
+            } catch (error: unknown) {
+                return { domain, success: false as const, status: 'error' as const, error: getErrorMessage(error) };
+            }
+        });
+        return { success: true, data: results };
+    } catch (error: unknown) {
+        return { success: false, error: getErrorMessage(error, '域名健康概览检查失败') };
+    }
+}
+
 // Logs Actions
 
 export async function getLogsAction() {
@@ -506,9 +712,8 @@ export async function createDataBackupAction() {
 }
 
 export async function restoreDataBackupAction(content: string) {
-    if (!(await isCurrentAdminSessionValid())) {
-        return { success: false, error: '登录会话已失效，请重新登录' };
-    }
+    const mutationRejection = await getMutationRejection();
+    if (mutationRejection) return mutationRejection;
 
     try {
         const backup = parseAndValidateBackup(content);

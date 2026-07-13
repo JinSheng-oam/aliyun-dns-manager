@@ -11,7 +11,8 @@ import {
   setDnsRecordStatusAction,
   batchDeleteDnsRecordsAction,
   batchSetDnsRecordsStatusAction,
-  batchAddDnsRecordsAction
+  batchAddDnsRecordsAction,
+  checkDomainHealthOverviewAction,
 } from '@/app/actions';
 import { Button } from '@/components/ui/Button';
 import { Input } from '@/components/ui/Input';
@@ -21,7 +22,7 @@ import {
   Filter, Globe, ArrowLeft, Loader2, Edit2,
   PlayCircle, PauseCircle, X, Copy, History,
   Download, UploadCloud, AlertTriangle, CheckCircle2,
-  FileSpreadsheet, Archive, Search
+  FileSpreadsheet, Archive, Search, Stethoscope, RotateCcw
 } from 'lucide-react';
 import { useToast } from '@/components/ui/Toast';
 import { useConfirm } from '@/components/ui/ConfirmDialog';
@@ -30,9 +31,13 @@ import { DnsHistoryViewer } from '@/components/DnsHistoryViewer';
 import { createDnsImportPreview, createDomainBackup, type DnsImportPreview } from '@/lib/dns-import';
 import type { DnsChangeRecord } from '@/lib/logger';
 import { filterDnsRecords, type DnsStatusFilter } from '@/lib/dns-filter';
+import { DnsSnapshotsPanel } from '@/components/DnsSnapshotsPanel';
+import { DnsHealthPanel } from '@/components/DnsHealthPanel';
+import type { DnsHealthStatus } from '@/lib/dns-health';
 
 interface DnsManagerProps {
   initialKeys: AccessKey[];
+  readOnly?: boolean;
 }
 
 type SortKey = 'RR' | 'Type' | 'Value' | 'TTL' | 'Status';
@@ -69,6 +74,12 @@ const typeBadgeStyle = (t: string): React.CSSProperties => {
   }
 };
 
+const healthBadgeStyle = (status: DnsHealthStatus): React.CSSProperties => {
+  if (status === 'error') return { backgroundColor: 'var(--danger-light)', color: 'var(--danger)' };
+  if (status === 'warning') return { backgroundColor: 'var(--warning-light)', color: 'var(--warning)' };
+  return { backgroundColor: 'var(--success-light)', color: 'var(--success)' };
+};
+
 /* ---- Resolved accent from table header ---- */
 const thStyle: React.CSSProperties = {
   fontSize: '0.75rem',
@@ -79,7 +90,7 @@ const thStyle: React.CSSProperties = {
   userSelect: 'none',
 };
 
-export function DnsManager({ initialKeys }: DnsManagerProps) {
+export function DnsManager({ initialKeys, readOnly = false }: DnsManagerProps) {
   const toast = useToast();
   const confirm = useConfirm();
   const fileInputRef = useRef<HTMLInputElement>(null);
@@ -121,6 +132,10 @@ export function DnsManager({ initialKeys }: DnsManagerProps) {
   // Modals
   const [isLogsOpen, setIsLogsOpen] = useState(false);
   const [isHistoryOpen, setIsHistoryOpen] = useState(false);
+  const [isSnapshotsOpen, setIsSnapshotsOpen] = useState(false);
+  const [isHealthOpen, setIsHealthOpen] = useState(false);
+  const [checkingDomainOverview, setCheckingDomainOverview] = useState(false);
+  const [domainHealth, setDomainHealth] = useState<Record<string, DnsHealthStatus>>({});
 
   const toChangeRecord = (record: DnsRecord): DnsChangeRecord => ({
     recordId: record.RecordId,
@@ -153,6 +168,8 @@ export function DnsManager({ initialKeys }: DnsManagerProps) {
     setImportPreview(null);
     setImportFileName('');
     setIsHistoryOpen(false);
+    setIsSnapshotsOpen(false);
+    setIsHealthOpen(false);
     setBatchFeedback(null);
 
     const res = await listDomainsAction(selectedKeyId);
@@ -219,6 +236,15 @@ export function DnsManager({ initialKeys }: DnsManagerProps) {
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
     if (!selectedDomain) return;
+    const description = editingRecord
+      ? `将修改 ${editingRecord.RR}.${selectedDomain.domainName}：\n修改前：${editingRecord.Type} ${editingRecord.Value}，TTL ${editingRecord.TTL}\n修改后：${type} ${value}，TTL ${ttl}`
+      : `将在 ${selectedDomain.domainName} 新增记录：\n${rr} ${type} ${value}，TTL ${ttl}\n确认后系统会先自动保存当前快照。`;
+    const confirmed = await confirm({
+      title: editingRecord ? '预览 DNS 记录修改' : '预览新增 DNS 记录',
+      description,
+      confirmText: editingRecord ? '确认修改' : '确认新增',
+    });
+    if (!confirmed) return;
     setIsSubmitting(true);
     let res;
     if (editingRecord) {
@@ -239,7 +265,7 @@ export function DnsManager({ initialKeys }: DnsManagerProps) {
   const handleDeleteRecord = async (record: DnsRecord) => {
     const confirmed = await confirm({
       title: '删除解析记录',
-      description: `确定删除 ${record.RR}.${selectedDomain?.domainName || ''} 这条解析记录吗？此操作不可逆。`,
+      description: `将删除 ${record.RR}.${selectedDomain?.domainName || ''}：\n类型：${record.Type}\n记录值：${record.Value}\nTTL：${record.TTL}\n系统会先自动保存当前快照。`,
       confirmText: '删除记录',
       variant: 'danger',
     });
@@ -258,6 +284,13 @@ export function DnsManager({ initialKeys }: DnsManagerProps) {
     const newStatus = currentlyEnabled ? 'Disable' : 'Enable';
     const actionText = currentlyEnabled ? '暂停' : '启用';
     if (!selectedDomain) return;
+    const confirmed = await confirm({
+      title: `${actionText}解析记录`,
+      description: `将${actionText} ${record.RR}.${selectedDomain.domainName} 的 ${record.Type} 记录：\n${record.Value}\n系统会先自动保存当前快照。`,
+      confirmText: `确认${actionText}`,
+      variant: currentlyEnabled ? 'danger' : 'default',
+    });
+    if (!confirmed) return;
     const res = await setDnsRecordStatusAction(selectedKeyId, selectedDomain.domainName, toChangeRecord(record), newStatus);
     if (res.success) {
       setRecords(prev => prev.map(r =>
@@ -330,15 +363,13 @@ export function DnsManager({ initialKeys }: DnsManagerProps) {
   const handleBatchStatus = async (status: 'Enable' | 'Disable') => {
     const actionText = status === 'Enable' ? '启用' : '暂停';
     if (!selectedDomain) return;
-    if (status === 'Disable') {
-      const confirmed = await confirm({
-        title: '批量暂停解析记录',
-        description: `将在 ${selectedDomain.domainName} 中暂停选中的 ${selectedRecordIds.size} 条解析记录。暂停后这些记录将停止解析。`,
-        confirmText: '批量暂停',
-        variant: 'danger',
-      });
-      if (!confirmed) return;
-    }
+    const confirmed = await confirm({
+      title: `批量${actionText}解析记录`,
+      description: `将在 ${selectedDomain.domainName} 中${actionText}选中的 ${selectedRecordIds.size} 条记录。系统会先自动保存当前快照。`,
+      confirmText: `批量${actionText}`,
+      variant: status === 'Disable' ? 'danger' : 'default',
+    });
+    if (!confirmed) return;
     setActiveBatchAction(status === 'Enable' ? 'enable' : 'disable');
     const sel = records.filter(r => selectedRecordIds.has(r.RecordId)).map(toChangeRecord);
     try {
@@ -417,6 +448,21 @@ export function DnsManager({ initialKeys }: DnsManagerProps) {
     setIsSubmitting(false);
   };
 
+  const handleCheckDomainOverview = async () => {
+    if (!selectedKeyId || domains.length === 0) return;
+    setCheckingDomainOverview(true);
+    const result = await checkDomainHealthOverviewAction(selectedKeyId, domains.map(domain => domain.domainName));
+    if (result.success) {
+      setDomainHealth(Object.fromEntries((result.data || []).map(item => [item.domain, item.status])));
+      const failed = (result.data || []).filter(item => !item.success).length;
+      if (failed > 0) toast.error(`${failed} 个域名检查失败，其余结果已显示`);
+      else toast.success(`已检查 ${result.data?.length || 0} 个域名`);
+    } else {
+      toast.error(result.error || '域名健康概览检查失败');
+    }
+    setCheckingDomainOverview(false);
+  };
+
   const requestSort = (key: SortKey) => {
     let direction: 'asc' | 'desc' = 'asc';
     if (sortConfig && sortConfig.key === key && sortConfig.direction === 'asc') direction = 'desc';
@@ -447,6 +493,15 @@ export function DnsManager({ initialKeys }: DnsManagerProps) {
      ================================================================ */
   return (
     <div className="space-y-5">
+      {readOnly && (
+        <div className="flex items-start gap-3 rounded-xl border p-4" style={{ borderColor: 'var(--warning)', backgroundColor: 'var(--warning-light)', color: 'var(--warning)' }}>
+          <AlertTriangle className="mt-0.5 h-4 w-4 shrink-0" />
+          <div>
+            <div className="text-sm font-semibold">当前为只读模式</div>
+            <div className="mt-1 text-xs">可以查看、导出、创建快照和运行健康检查，但不能修改 DNS、导入或执行恢复。</div>
+          </div>
+        </div>
+      )}
       {/* ---- Top bar: AccessKey selector ---- */}
       <div className="surface flex flex-col sm:flex-row gap-4 items-start sm:items-center justify-between p-4">
         <div className="flex items-center gap-3">
@@ -480,9 +535,16 @@ export function DnsManager({ initialKeys }: DnsManagerProps) {
         {!selectedDomain ? (
           /* ======== Domain List ======== */
           <div className="space-y-4">
-            <div className="flex items-center justify-between">
+            <div className="flex items-center justify-between gap-3">
               <h3 className="text-sm font-semibold" style={{ color: 'var(--fg)' }}>域名列表</h3>
-              {loadingDomains && <Loader2 className="h-4 w-4 animate-spin" style={{ color: 'var(--accent)' }} />}
+              <div className="flex items-center gap-2">
+                {loadingDomains && <Loader2 className="h-4 w-4 animate-spin" style={{ color: 'var(--accent)' }} />}
+                {domains.length > 0 && (
+                  <Button size="sm" variant="secondary" onClick={handleCheckDomainOverview} isLoading={checkingDomainOverview}>
+                    <Stethoscope className="h-4 w-4" /> 检查全部域名
+                  </Button>
+                )}
+              </div>
             </div>
 
             {loadingDomains ? (
@@ -505,8 +567,16 @@ export function DnsManager({ initialKeys }: DnsManagerProps) {
                       <div className="font-semibold text-[15px]" style={{ color: 'var(--fg)' }}>
                         {domain.domainName}
                       </div>
-                      <div className="text-xs mt-0.5" style={{ color: 'var(--muted)' }}>
-                        {domain.versionName}
+                      <div className="mt-1 flex items-center gap-2 text-xs" style={{ color: 'var(--muted)' }}>
+                        <span>{domain.versionName}</span>
+                        {domainHealth[domain.domainName.toLowerCase()] && (
+                          <span
+                            className="rounded-full px-2 py-0.5 text-[10px] font-semibold"
+                            style={healthBadgeStyle(domainHealth[domain.domainName.toLowerCase()])}
+                          >
+                            {{ healthy: '健康', warning: '需关注', error: '异常' }[domainHealth[domain.domainName.toLowerCase()]]}
+                          </span>
+                        )}
                       </div>
                     </div>
                     <div className="flex justify-between items-end">
@@ -552,15 +622,35 @@ export function DnsManager({ initialKeys }: DnsManagerProps) {
                 <input type="file" ref={fileInputRef} className="hidden" accept=".csv,.txt,.json" onChange={handleFileChange} />
                 <Button variant="ghost" size="icon" onClick={handleExport} title="导出 CSV"><Download className="h-4 w-4" /></Button>
                 <Button variant="ghost" size="icon" onClick={handleDomainBackup} title="域名备份"><Archive className="h-4 w-4" /></Button>
-                <Button variant="ghost" size="icon" onClick={handleImportClick} title="导入"><UploadCloud className="h-4 w-4" /></Button>
+                <Button variant={isSnapshotsOpen ? 'secondary' : 'ghost'} size="icon" onClick={() => { setIsSnapshotsOpen(value => !value); setIsHealthOpen(false); }} title="快照与恢复"><RotateCcw className="h-4 w-4" /></Button>
+                <Button variant={isHealthOpen ? 'secondary' : 'ghost'} size="icon" onClick={() => { setIsHealthOpen(value => !value); setIsSnapshotsOpen(false); }} title="健康检查"><Stethoscope className="h-4 w-4" /></Button>
+                <Button variant="ghost" size="icon" onClick={handleImportClick} title="导入" disabled={readOnly}><UploadCloud className="h-4 w-4" /></Button>
                 <Button variant="ghost" size="icon" onClick={() => setIsHistoryOpen(true)} title="变更历史"><History className="h-4 w-4" /></Button>
                 {!isFormOpen && (
-                  <Button variant="primary" size="sm" onClick={handleInitAdd}>
+                  <Button variant="primary" size="sm" onClick={handleInitAdd} disabled={readOnly}>
                     <Plus className="h-4 w-4" /> 添加记录
                   </Button>
                 )}
               </div>
             </div>
+
+            {isSnapshotsOpen && (
+              <DnsSnapshotsPanel
+                keyId={selectedKeyId}
+                domain={selectedDomain.domainName}
+                onClose={() => setIsSnapshotsOpen(false)}
+                onRestored={refreshRecords}
+                readOnly={readOnly}
+              />
+            )}
+
+            {isHealthOpen && (
+              <DnsHealthPanel
+                keyId={selectedKeyId}
+                domain={selectedDomain.domainName}
+                onClose={() => setIsHealthOpen(false)}
+              />
+            )}
 
             {/* Import preview */}
             {importPreview && (
@@ -577,7 +667,7 @@ export function DnsManager({ initialKeys }: DnsManagerProps) {
                   </div>
                   <div className="flex gap-2">
                     <Button variant="ghost" size="sm" onClick={() => { setImportPreview(null); setImportFileName(''); }} disabled={isSubmitting}>取消</Button>
-                    <Button size="sm" onClick={handleConfirmImport} isLoading={isSubmitting} disabled={importPreview.summary.add === 0}>
+                    <Button size="sm" onClick={handleConfirmImport} isLoading={isSubmitting} disabled={importPreview.summary.add === 0 || readOnly}>
                       确认新增 {importPreview.summary.add} 条
                     </Button>
                   </div>
@@ -671,7 +761,7 @@ export function DnsManager({ initialKeys }: DnsManagerProps) {
                     />
                   </div>
                   <div className="sm:col-span-1">
-                    <Button type="submit" isLoading={isSubmitting} className="w-full">
+                    <Button type="submit" isLoading={isSubmitting} className="w-full" disabled={readOnly}>
                       {editingRecord ? '保存' : '添加'}
                     </Button>
                   </div>
@@ -784,13 +874,13 @@ export function DnsManager({ initialKeys }: DnsManagerProps) {
                   已选择 {selectedRecordIds.size} 项
                 </span>
                 <div className="flex gap-2">
-                  <Button size="sm" variant="danger" onClick={handleBatchDelete} disabled={activeBatchAction !== null} isLoading={activeBatchAction === 'delete'}>
+                  <Button size="sm" variant="danger" onClick={handleBatchDelete} disabled={activeBatchAction !== null || readOnly} isLoading={activeBatchAction === 'delete'}>
                     <Trash2 className="h-4 w-4" /> 批量删除
                   </Button>
-                  <Button size="sm" variant="secondary" onClick={() => handleBatchStatus('Enable')} disabled={activeBatchAction !== null} isLoading={activeBatchAction === 'enable'}>
+                  <Button size="sm" variant="secondary" onClick={() => handleBatchStatus('Enable')} disabled={activeBatchAction !== null || readOnly} isLoading={activeBatchAction === 'enable'}>
                     <PlayCircle className="h-4 w-4" /> 批量启用
                   </Button>
-                  <Button size="sm" variant="secondary" onClick={() => handleBatchStatus('Disable')} disabled={activeBatchAction !== null} isLoading={activeBatchAction === 'disable'}>
+                  <Button size="sm" variant="secondary" onClick={() => handleBatchStatus('Disable')} disabled={activeBatchAction !== null || readOnly} isLoading={activeBatchAction === 'disable'}>
                     <PauseCircle className="h-4 w-4" /> 批量暂停
                   </Button>
                 </div>
@@ -948,6 +1038,7 @@ export function DnsManager({ initialKeys }: DnsManagerProps) {
                           <div className="flex items-center justify-end gap-0.5">
                             <button
                               onClick={() => handleToggleStatus(record)}
+                              disabled={readOnly}
                               className="p-1.5 rounded-md transition-colors"
                               style={{ color: 'var(--muted)' }}
                               title={isRecordEnabled(record.Status) ? '暂停解析' : '启用解析'}
@@ -964,6 +1055,7 @@ export function DnsManager({ initialKeys }: DnsManagerProps) {
                             </button>
                             <button
                               onClick={() => handleInitEdit(record)}
+                              disabled={readOnly}
                               className="p-1.5 rounded-md transition-colors"
                               style={{ color: 'var(--muted)' }}
                               title="编辑"
@@ -980,6 +1072,7 @@ export function DnsManager({ initialKeys }: DnsManagerProps) {
                             </button>
                             <button
                               onClick={() => handleDeleteRecord(record)}
+                              disabled={readOnly}
                               className="p-1.5 rounded-md transition-colors"
                               style={{ color: 'var(--muted)' }}
                               title="删除"

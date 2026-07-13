@@ -23,10 +23,14 @@ You can use it to:
 - import and export DNS records as CSV, with a preview of additions, skipped rows, and errors
 - export a complete, re-importable JSON backup for each domain
 - view add, update, delete, and status-change history for the selected domain
+- automatically snapshot DNS records before writes, preview restores, and roll back failed restores
+- check record formats, conflicts, TTL values, paused records, and current public DNS results
+- view a health overview across all domains
+- enable a server-enforced read-only mode for viewing, health checks, exports, and snapshots
 - protect the admin panel with password login
 - check password, session signing, local encryption, and HTTPS cookie configuration
-- search, filter, and export operation logs
-- back up and restore local AccessKey data and operation logs
+- search, filter, and export operation logs with high-risk operation labels
+- back up and restore local AccessKey data, operation logs, and DNS snapshots
 
 ## Who It Is For
 
@@ -98,6 +102,7 @@ http://localhost:3000
 | `SESSION_SECRET` | Recommended | Secret used to sign login session cookies. |
 | `ENCRYPTION_KEY` | Recommended | Encrypts locally stored AccessKeys. |
 | `APP_DATA_DIR` | No | Custom data directory. Defaults to `data/` in the project directory. |
+| `READONLY_MODE` | No | Set to `true` to allow viewing, health checks, exports, and snapshots while blocking writes on the server. |
 | `PORT` | No | Application port. Default is `3000`. |
 | `HOST` | No | Listening address. Default is `0.0.0.0`. |
 | `FORCE_HTTPS_COOKIE` | No | Set to `true` when deploying behind HTTPS. |
@@ -110,6 +115,7 @@ This application stores its runtime data locally on your own machine or server.
 
 - AccessKeys are stored in local JSON files
 - operation logs are stored locally
+- the latest 20 DNS snapshots per AccessKey and domain are stored locally
 - when `ENCRYPTION_KEY` is configured, AccessKeys are encrypted before being written to disk
 
 No DNS credentials are uploaded to any third-party service by this project.
@@ -120,6 +126,7 @@ Open **Operation Logs** from the DNS management page to:
 
 - search by action, IP address, details, or error message
 - filter successful or failed operations
+- filter high-risk delete, status, and restore operations
 - export the current filtered results as CSV
 
 Exported CSV files use UTF-8 encoding and can be opened in common spreadsheet applications.
@@ -133,6 +140,18 @@ After selecting a domain on the DNS management page, upload a CSV file to review
 - "Error" rows are missing required fields or contain an invalid TTL
 
 Only rows marked for addition are sent to Alibaba Cloud after confirmation. Closing the preview does not change DNS records.
+
+## DNS Snapshots and Restore
+
+Open **Snapshots and Restore** for a domain to view automatic snapshots, create a manual snapshot, and preview a restore plan. DNS writes create a snapshot first. Restore previews show additions, updates, deletions, and unchanged records. The app creates another safety snapshot before restoring and attempts an automatic rollback if the restore fails.
+
+## DNS Health Checks
+
+The read-only health check validates common record formats, CNAME conflicts and loops, duplicate and paused records, unusual TTL values, and current public A, AAAA, CNAME, MX, and TXT results. Recent DNS changes may temporarily produce propagation warnings. Use **Check all domains** for a fast configuration overview.
+
+## Read-Only Mode
+
+Set `READONLY_MODE=true` and restart the app to keep domain viewing, exports, logs, local snapshots, and health checks available while blocking AccessKey changes, DNS writes, imports, snapshot restores, and application-data restores in both the UI and server actions.
 
 ## Complete domain backup
 
@@ -169,12 +188,13 @@ The backup file contains:
 
 - encrypted AccessKey data
 - operation logs
+- DNS snapshots
 
 It does not contain `.env`, `ADMIN_PASSWORD`, `SESSION_SECRET`, or `ENCRYPTION_KEY`.
 
 Before restoring:
 
-1. Restore replaces the current AccessKeys and operation logs.
+1. Restore replaces the current AccessKeys, operation logs, and DNS snapshots.
 2. You must use the same `ENCRYPTION_KEY` that was active when the backup was created.
 3. The application validates the format and decrypts the AccessKey data before writing anything.
 4. Export the current data first if you need an additional rollback copy.

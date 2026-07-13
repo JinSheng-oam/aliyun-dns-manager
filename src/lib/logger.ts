@@ -17,7 +17,7 @@ export interface LogEntry {
     context?: DnsChangeContext;
 }
 
-export type DnsChangeOperation = 'add' | 'update' | 'delete' | 'status' | 'batch-add' | 'batch-delete' | 'batch-status';
+export type DnsChangeOperation = 'add' | 'update' | 'delete' | 'status' | 'batch-add' | 'batch-delete' | 'batch-status' | 'restore';
 
 export interface DnsChangeRecord {
     recordId?: string;

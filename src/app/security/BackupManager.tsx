@@ -12,9 +12,10 @@ interface BackupPreview {
   createdAt: string;
   logCount: number;
   hasAccessKeys: boolean;
+  snapshotCount: number;
 }
 
-export function BackupManager() {
+export function BackupManager({ readOnly = false }: { readOnly?: boolean }) {
   const fileInputRef = useRef<HTMLInputElement>(null);
   const [isExporting, setIsExporting] = useState(false);
   const [isRestoring, setIsRestoring] = useState(false);
@@ -51,12 +52,18 @@ export function BackupManager() {
       const content = await file.text();
       const parsed = JSON.parse(content) as {
         format?: string; version?: number; createdAt?: string;
-        data?: { accessKeys?: string | null; logs?: unknown[] };
+        data?: { accessKeys?: string | null; logs?: unknown[]; dnsSnapshots?: unknown[] };
       };
-      if (parsed.format !== 'aliyun-dns-manager-backup' || parsed.version !== 1 || typeof parsed.createdAt !== 'string' || !parsed.data || !Array.isArray(parsed.data.logs)) {
+      if (parsed.format !== 'aliyun-dns-manager-backup' || (parsed.version !== 1 && parsed.version !== 2) || typeof parsed.createdAt !== 'string' || !parsed.data || !Array.isArray(parsed.data.logs)) {
         throw new Error('unsupported');
       }
-      setPreview({ content, createdAt: parsed.createdAt, logCount: parsed.data.logs.length, hasAccessKeys: typeof parsed.data.accessKeys === 'string' });
+      setPreview({
+        content,
+        createdAt: parsed.createdAt,
+        logCount: parsed.data.logs.length,
+        hasAccessKeys: typeof parsed.data.accessKeys === 'string',
+        snapshotCount: Array.isArray(parsed.data.dnsSnapshots) ? parsed.data.dnsSnapshots.length : 0,
+      });
     } catch { toast.error('无法识别此备份文件'); }
   };
 
@@ -91,7 +98,7 @@ export function BackupManager() {
             <div>
               <h2 className="font-semibold text-sm" style={{ color: 'var(--fg)' }}>数据备份与恢复</h2>
               <p className="text-xs mt-0.5" style={{ color: 'var(--muted)' }}>
-                备份加密后的 AccessKey 数据和操作日志，不包含环境变量。
+                备份加密后的 AccessKey、操作日志和 DNS 快照，不包含环境变量。
               </p>
             </div>
           </div>
@@ -105,7 +112,7 @@ export function BackupManager() {
           <Button variant="secondary" size="sm" onClick={handleExport} isLoading={isExporting}>
             <Download className="h-4 w-4" /> 导出备份
           </Button>
-          <Button variant="secondary" size="sm" onClick={() => fileInputRef.current?.click()}>
+          <Button variant="secondary" size="sm" onClick={() => fileInputRef.current?.click()} disabled={readOnly}>
             <FileUp className="h-4 w-4" /> 选择备份文件
           </Button>
           <input ref={fileInputRef} type="file" accept="application/json,.json" className="hidden" onChange={handleFileChange} />
@@ -114,11 +121,12 @@ export function BackupManager() {
 
       {preview && (
         <div className="mt-5 rounded-xl border p-4" style={{ borderColor: 'var(--accent)', borderWidth: '1.5px', backgroundColor: 'var(--accent-light)' }}>
-          <div className="grid gap-3 text-xs sm:grid-cols-3">
+          <div className="grid gap-3 text-xs sm:grid-cols-4">
             {[
               { label: '备份时间', value: new Date(preview.createdAt).toLocaleString() },
               { label: 'AccessKey 数据', value: preview.hasAccessKeys ? '包含' : '空' },
               { label: '操作日志', value: `${preview.logCount} 条` },
+              { label: 'DNS 快照', value: `${preview.snapshotCount} 个` },
             ].map((f) => (
               <div key={f.label}>
                 <div style={{ color: 'var(--muted)' }}>{f.label}</div>
@@ -128,7 +136,7 @@ export function BackupManager() {
           </div>
           <div className="mt-4 flex justify-end gap-2">
             <Button variant="ghost" size="sm" onClick={() => setPreview(null)} disabled={isRestoring}>取消</Button>
-            <Button variant="danger" size="sm" onClick={handleRestore} isLoading={isRestoring}>确认覆盖并恢复</Button>
+            <Button variant="danger" size="sm" onClick={handleRestore} isLoading={isRestoring} disabled={readOnly}>确认覆盖并恢复</Button>
           </div>
         </div>
       )}

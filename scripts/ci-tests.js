@@ -34,6 +34,15 @@ async function testSessionInvalidation() {
     );
 }
 
+async function testReadOnlyModeConfig() {
+    const securityConfig = await jiti.import(path.join(projectRoot, 'src/lib/security-config.ts'));
+    process.env.READONLY_MODE = 'true';
+    assert.equal(securityConfig.isReadOnlyModeEnabled(), true, 'READONLY_MODE=true must enable server read-only checks');
+    process.env.READONLY_MODE = 'false';
+    assert.equal(securityConfig.isReadOnlyModeEnabled(), false, 'READONLY_MODE=false must keep writes available');
+    delete process.env.READONLY_MODE;
+}
+
 async function testLogCsvExport() {
     const { createLogsCsv } = await jiti.import(path.join(projectRoot, 'src/lib/log-export.ts'));
     const csv = createLogsCsv([
@@ -57,6 +66,7 @@ async function testLogCsvExport() {
 
 async function testDnsHistoryFiltering() {
     const { filterDnsChangeLogs } = await jiti.import(path.join(projectRoot, 'src/lib/logger.ts'));
+    const { isHighRiskLog } = await jiti.import(path.join(projectRoot, 'src/lib/log-risk.ts'));
     const logs = [
         {
             id: '1',
@@ -96,6 +106,8 @@ async function testDnsHistoryFiltering() {
     const history = filterDnsChangeLogs(logs, 'example.com');
     assert.equal(history.length, 1, 'History must use structured domain metadata only');
     assert.equal(history[0].id, '1', 'Domain matching must be case-insensitive');
+    assert.equal(isHighRiskLog({ action: 'Restore DNS Snapshot' }), true, 'Snapshot restore logs must be marked high risk');
+    assert.equal(isHighRiskLog({ action: 'Login' }), false, 'Read-only login events must not be marked high risk');
 }
 
 async function testDnsRecordFiltering() {
@@ -251,6 +263,49 @@ async function testDnsImportPreview() {
     );
 }
 
+async function testDnsSnapshotRestorePlan() {
+    const { createDnsRestorePlan } = await jiti.import(path.join(projectRoot, 'src/lib/dns-snapshots.ts'));
+    const current = [
+        { RecordId: '1', RR: 'www', Type: 'A', Value: '1.1.1.1', TTL: 600, DomainName: 'example.com', Status: 'Enable' },
+        { RecordId: '2', RR: 'old', Type: 'CNAME', Value: 'legacy.example.com', TTL: 600, DomainName: 'example.com', Status: 'Enable' },
+        { RecordId: '3', RR: 'same', Type: 'TXT', Value: 'unchanged', TTL: 3600, DomainName: 'example.com', Status: 'Enable' },
+        { RecordId: '4', RR: 'case', Type: 'TXT', Value: 'CaseSensitive', TTL: 600, DomainName: 'example.com', Status: 'Enable' },
+    ];
+    const target = [
+        { rr: 'www', type: 'A', value: '1.1.1.1', ttl: 3600, status: 'Disable' },
+        { rr: 'new', type: 'TXT', value: 'added', ttl: 600, status: 'Enable' },
+        { rr: 'same', type: 'TXT', value: 'unchanged', ttl: 3600, status: 'Enable' },
+        { rr: 'case', type: 'TXT', value: 'casesensitive', ttl: 600, status: 'Enable' },
+    ];
+    const plan = createDnsRestorePlan(current, target);
+
+    assert.equal(plan.add.length, 2, 'Snapshot restore must identify missing and case-sensitive TXT records');
+    assert.equal(plan.update.length, 1, 'Snapshot restore must identify TTL and status changes');
+    assert.equal(plan.delete.length, 2, 'Snapshot restore must replace case-sensitive TXT values and remove absent records');
+    assert.equal(plan.unchanged, 1, 'Snapshot restore must preserve unchanged records');
+    assert.equal(plan.update[0].current.recordId, '1');
+}
+
+async function testDnsHealthAnalysis() {
+    const { analyzeDnsRecords } = await jiti.import(path.join(projectRoot, 'src/lib/dns-health.ts'));
+    const report = analyzeDnsRecords('example.com', [
+        { RecordId: '1', RR: 'www', Type: 'A', Value: 'not-an-ip', TTL: 30, DomainName: 'example.com', Status: 'Enable' },
+        { RecordId: '2', RR: 'alias', Type: 'CNAME', Value: 'target.example.com', TTL: 600, DomainName: 'example.com', Status: 'Enable' },
+        { RecordId: '3', RR: 'alias', Type: 'TXT', Value: 'conflict', TTL: 600, DomainName: 'example.com', Status: 'Enable' },
+        { RecordId: '4', RR: 'paused', Type: 'A', Value: '1.1.1.1', TTL: 600, DomainName: 'example.com', Status: 'Disable' },
+        { RecordId: '5', RR: 'dup', Type: 'A', Value: '2.2.2.2', TTL: 600, DomainName: 'example.com', Status: 'Enable' },
+        { RecordId: '6', RR: 'dup', Type: 'A', Value: '2.2.2.2', TTL: 600, DomainName: 'example.com', Status: 'Enable' },
+    ]);
+    const codes = new Set(report.issues.map(issue => issue.code));
+
+    assert.equal(report.status, 'error', 'Invalid DNS configuration must produce an error status');
+    assert.ok(codes.has('INVALID_IP'), 'Invalid A values must be reported');
+    assert.ok(codes.has('TTL_TOO_LOW'), 'Abnormally low TTL values must be reported');
+    assert.ok(codes.has('CNAME_CONFLICT'), 'CNAME conflicts must be reported');
+    assert.ok(codes.has('DISABLED_RECORD'), 'Paused records must be visible in health results');
+    assert.ok(codes.has('DUPLICATE_RECORD'), 'Duplicate records must be reported');
+}
+
 async function silenceExpectedConsoleError(callback) {
     const originalConsoleError = console.error;
     console.error = () => undefined;
@@ -274,6 +329,7 @@ async function testAccessKeyAndBackupSafety() {
 
         const keyManager = await jiti.import(path.join(projectRoot, 'src/lib/key-manager.ts'));
         const backupManager = await jiti.import(path.join(projectRoot, 'src/lib/backup-manager.ts'));
+        const snapshotManager = await jiti.import(path.join(projectRoot, 'src/lib/dns-snapshots.ts'));
 
         assert.deepEqual(
             await keyManager.getAccessKeys(),
@@ -300,11 +356,17 @@ async function testAccessKeyAndBackupSafety() {
                 },
             ], null, 2)
         );
+        await snapshotManager.createDomainSnapshot('1', 'example.com', [{
+            RecordId: 'record-1', RR: 'www', Type: 'A', Value: '1.1.1.1', TTL: 600,
+            DomainName: 'example.com', Status: 'Enable',
+        }], 'backup baseline');
 
         const backup = await backupManager.createAppDataBackup();
         assert.equal(backup.format, 'aliyun-dns-manager-backup');
+        assert.equal(backup.version, 2, 'New backups must use the snapshot-aware format');
         assert.ok(backup.data.accessKeys);
         assert.equal(backup.data.logs.length, 1);
+        assert.equal(backup.data.dnsSnapshots.length, 1, 'App backups must include DNS snapshots');
 
         await keyManager.saveAccessKey({
             id: '2',
@@ -313,6 +375,7 @@ async function testAccessKeyAndBackupSafety() {
             accessKeySecret: 'sk2',
             createdAt: '2026-06-08T01:00:00.000Z',
         });
+        await snapshotManager.createDomainSnapshot('1', 'example.com', [], 'temporary snapshot');
         await backupManager.restoreAppDataBackup(
             backupManager.parseAndValidateBackup(JSON.stringify(backup))
         );
@@ -320,6 +383,11 @@ async function testAccessKeyAndBackupSafety() {
         const restoredKeys = await keyManager.getAccessKeys();
         assert.equal(restoredKeys.length, 1);
         assert.equal(restoredKeys[0].name, 'production');
+        assert.equal(
+            (await snapshotManager.readDnsSnapshotsForBackup()).length,
+            1,
+            'Restoring an app backup must restore the DNS snapshot set'
+        );
 
         const accessKeyFile = path.join(dataDir, 'access_keys.json');
         const beforeInvalidRestore = await fs.readFile(accessKeyFile, 'utf8');
@@ -369,11 +437,14 @@ async function testAccessKeyAndBackupSafety() {
 async function main() {
     const tests = [
         ['session invalidation', testSessionInvalidation],
+        ['read-only mode config', testReadOnlyModeConfig],
         ['log CSV export', testLogCsvExport],
         ['DNS history filtering', testDnsHistoryFiltering],
         ['DNS record filtering', testDnsRecordFiltering],
         ['pagination and batch concurrency', testPaginationAndBatchConcurrency],
         ['DNS import preview', testDnsImportPreview],
+        ['DNS snapshot restore plan', testDnsSnapshotRestorePlan],
+        ['DNS health analysis', testDnsHealthAnalysis],
         ['AccessKey and backup safety', testAccessKeyAndBackupSafety],
     ];
 

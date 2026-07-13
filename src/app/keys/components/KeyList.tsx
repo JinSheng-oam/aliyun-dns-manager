@@ -13,9 +13,10 @@ import { useRouter } from 'next/navigation';
 interface KeyListProps {
   initialKeys: AccessKey[];
   readError?: string;
+  readOnly?: boolean;
 }
 
-export function KeyList({ initialKeys, readError }: KeyListProps) {
+export function KeyList({ initialKeys, readError, readOnly = false }: KeyListProps) {
   const [isAdding, setIsAdding] = useState(false);
   const [editingKeyId, setEditingKeyId] = useState<string | null>(null);
   const [isLoading, setIsLoading] = useState(false);
@@ -89,7 +90,7 @@ export function KeyList({ initialKeys, readError }: KeyListProps) {
           </div>
           <h2 className="text-lg font-semibold" style={{ color: 'var(--fg)' }}>Access Keys</h2>
         </div>
-        <Button onClick={handleStartAdd} disabled={Boolean(readError)}>
+        <Button onClick={handleStartAdd} disabled={Boolean(readError) || readOnly}>
           <Plus className="h-4 w-4" /> {isAdding && !editingKeyId ? '收起表单' : '添加密钥'}
         </Button>
       </div>
@@ -97,6 +98,12 @@ export function KeyList({ initialKeys, readError }: KeyListProps) {
       {readError && (
         <div className="rounded-lg px-4 py-3 text-sm" style={{ backgroundColor: 'var(--danger-light)', color: 'var(--danger)' }}>
           {readError}。为防止数据损坏，新增和编辑操作已禁用。
+        </div>
+      )}
+
+      {readOnly && (
+        <div className="rounded-lg px-4 py-3 text-sm" style={{ backgroundColor: 'var(--warning-light)', color: 'var(--warning)' }}>
+          当前启用了只读模式。可以查看和复制 AccessKey，但不能新增、修改或删除。
         </div>
       )}
 
@@ -144,10 +151,10 @@ export function KeyList({ initialKeys, readError }: KeyListProps) {
               </div>
             </div>
             <div className="flex items-center gap-2 shrink-0">
-              <Button variant="secondary" size="sm" onClick={() => handleStartEdit(key)}>
+              <Button variant="secondary" size="sm" onClick={() => handleStartEdit(key)} disabled={readOnly}>
                 <Pencil className="h-3.5 w-3.5" /> 修改
               </Button>
-              <Button variant="danger" size="sm" onClick={() => handleDeleteKey(key.id)} aria-label={`删除 ${key.name}`}>
+              <Button variant="danger" size="sm" onClick={() => handleDeleteKey(key.id)} aria-label={`删除 ${key.name}`} disabled={readOnly}>
                 <Trash2 className="h-3.5 w-3.5" />
               </Button>
             </div>

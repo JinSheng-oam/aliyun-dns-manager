@@ -33,10 +33,10 @@ test('登录、日志弹窗和 AccessKey 持久化流程', async ({ page, reques
 
   const health = await request.get('/api/health');
   expect(health.ok()).toBeTruthy();
-  await expect(health.json()).resolves.toMatchObject({ status: 'ok', version: '0.4.0' });
+  await expect(health.json()).resolves.toMatchObject({ status: 'ok', version: '0.6.0' });
 
   await login(page);
-  await expect(page.locator('main').getByText('v0.4.0', { exact: true })).toBeVisible();
+  await expect(page.locator('main').getByText('v0.6.0', { exact: true })).toBeVisible();
 
   await page.getByRole('link', { name: 'DNS 管理' }).click();
   await page.getByRole('button', { name: '操作日志' }).click();

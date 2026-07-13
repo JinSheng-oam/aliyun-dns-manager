@@ -89,7 +89,7 @@ export function ConfirmProvider({ children }: { children: React.ReactNode }) {
                 </h2>
                 <p
                   id="confirm-dialog-description"
-                  className="mt-2 text-sm leading-6"
+                  className="mt-2 whitespace-pre-line text-sm leading-6"
                   style={{ color: 'var(--muted)' }}
                 >
                   {pendingConfirm.description}
