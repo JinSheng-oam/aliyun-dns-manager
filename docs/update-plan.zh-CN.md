@@ -352,7 +352,8 @@
 - 生产依赖审计结果为 0 个漏洞
 - 发行包确认不包含 `.env` 或 `data/`
 - 本机未安装 Docker CLI，Docker 镜像仍由 GitHub Actions 在推送后验证
-- 待提交、推送并发布 `v0.6.0`
+- 已提交为 `6eb1fde Release v0.6.0`
+- 待推送、确认 GitHub Actions 并正式发布 `v0.6.0`
 
 ### v0.7.0：导入导出和迁移增强
 
