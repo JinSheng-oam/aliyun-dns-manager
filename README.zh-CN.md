@@ -91,7 +91,7 @@ npm run dev
 打开终端输出的网址，例如：
 
 ```text
-http://localhost:3000
+http://localhost:3999
 ```
 
 ## 配置项
@@ -103,7 +103,7 @@ http://localhost:3000
 | `ENCRYPTION_KEY` | 推荐 | 用于加密本地保存的 AccessKey。 |
 | `APP_DATA_DIR` | 否 | 自定义数据保存目录，默认使用项目目录下的 `data/`。 |
 | `READONLY_MODE` | 否 | 设为 `true` 后只允许查询、健康检查、导出和创建快照，服务器会拒绝写操作。 |
-| `PORT` | 否 | 应用端口，默认 `3000`。 |
+| `PORT` | 否 | 应用默认端口为 `3000`；`.env.example` 模板设置为 `3999`。 |
 | `HOST` | 否 | 监听地址，默认 `0.0.0.0`。 |
 | `FORCE_HTTPS_COOKIE` | 否 | 在 HTTPS 部署时建议设为 `true`。 |
 | `LOGIN_WINDOW_SECONDS` | 否 | 登录失败限流窗口，单位秒。 |
@@ -115,7 +115,7 @@ http://localhost:3000
 
 - AccessKey 保存在本地 JSON 文件中
 - 操作日志保存在本地
-- DNS 快照保存在本地，单个 AccessKey 的每个域名最多保留最近 20 个
+- DNS 快照保存在本地，单个 AccessKey 的每个域名最多保留最新 20 个
 - 配置 `ENCRYPTION_KEY` 后，AccessKey 会在写入磁盘前加密
 
 本项目不会把 DNS 凭据上传到第三方服务。
@@ -288,7 +288,7 @@ docker compose ps
 docker compose down
 ```
 
-健康检查地址为 `/api/health`，例如 `http://localhost:3000/api/health`。实际端口以 `.env` 中的 `PORT` 为准。
+健康检查地址为 `/api/health`，例如 `http://localhost:3999/api/health`。实际端口以 `.env` 中的 `PORT` 为准。
 
 ### 普通 Node.js 运行
 

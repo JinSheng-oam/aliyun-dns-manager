@@ -91,7 +91,7 @@ npm run dev
 Open the address shown in the terminal, for example:
 
 ```text
-http://localhost:3000
+http://localhost:3999
 ```
 
 ## Configuration
@@ -103,7 +103,7 @@ http://localhost:3000
 | `ENCRYPTION_KEY` | Recommended | Encrypts locally stored AccessKeys. |
 | `APP_DATA_DIR` | No | Custom data directory. Defaults to `data/` in the project directory. |
 | `READONLY_MODE` | No | Set to `true` to allow viewing, health checks, exports, and snapshots while blocking writes on the server. |
-| `PORT` | No | Application port. Default is `3000`. |
+| `PORT` | No | The application defaults to `3000`; `.env.example` sets it to `3999`. |
 | `HOST` | No | Listening address. Default is `0.0.0.0`. |
 | `FORCE_HTTPS_COOKIE` | No | Set to `true` when deploying behind HTTPS. |
 | `LOGIN_WINDOW_SECONDS` | No | Login rate-limit window in seconds. |
@@ -259,7 +259,7 @@ docker compose ps
 docker compose down
 ```
 
-The health endpoint is `/api/health`, for example `http://localhost:3000/api/health`. The actual host port follows `PORT` in `.env`.
+The health endpoint is `/api/health`, for example `http://localhost:3999/api/health`. The actual host port follows `PORT` in `.env`.
 
 ### Run as a Normal Node.js App
 

@@ -121,7 +121,9 @@ if not exist .env (
 echo Starting Aliyun DNS Manager via port helper...
 node scripts/run-with-port.js start
 pause`;
-        fs.writeFileSync(path.join(releaseDir, 'start.bat'), startBat);
+        const startBatCrlf = startBat.replace(/\r?\n/g, '\r\n');
+        // The launcher is ASCII-only, so latin1 produces ANSI/GBK-compatible bytes.
+        fs.writeFileSync(path.join(releaseDir, 'start.bat'), startBatCrlf, 'latin1');
 
         const startSh = `#!/bin/bash
 if [ ! -f .env ]; then

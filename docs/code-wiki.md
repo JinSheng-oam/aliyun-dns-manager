@@ -126,7 +126,7 @@ aliyun-dns-manager/
 运行数据默认保存在项目运行目录下的 `data/`，也可通过 `APP_DATA_DIR` 指定其他目录：
 
 - `data/access_keys.json`：AccessKey 列表，加密保存
-- `data/logs.json`：操作日志，最多保留最近 1000 条
+- `data/logs.json`：操作日志，最多保留最新 1000 条
 - `data/dns_snapshots.json`：DNS 自动和手动快照，每个 AccessKey/域名最多 20 个
 
 AccessKey 加密逻辑在 `src/lib/key-manager.ts`：
@@ -258,7 +258,7 @@ README 中的最小权限示例应覆盖当前代码实际调用的 API：
 - 文件：`src/lib/logger.ts`
 - 存储：`data/logs.json`
 - 写入前会自动创建 `data/`
-- 保留最近 1000 条
+- 保留最新 1000 条
 - 记录动作、时间、IP、状态和错误信息
 - `src/components/LogsViewer.tsx` 支持关键词和状态筛选
 - 导出范围为当前筛选结果
