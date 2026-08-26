@@ -19,7 +19,7 @@
     "clsx": "^2.1.1",
     "framer-motion": "^12.29.2",
     "lucide-react": "^0.563.0",
-    "next": "16.2.11",
+    "next": "16.3.3",
     "react": "19.2.3",
     "react-dom": "19.2.3",
     "tailwind-merge": "^3.4.0"
@@ -31,14 +31,15 @@
     "@types/react": "^19",
     "@types/react-dom": "^19",
     "eslint": "^9",
-    "eslint-config-next": "16.2.11",
+    "eslint-config-next": "16.3.3",
     "jiti": "2.6.1",
     "tailwindcss": "^4",
     "typescript": "^5"
   },
   "overrides": {
     "lodash": "4.18.1",
-    "postcss": "8.5.15",
-    "sharp": "0.35.3"
+    "postcss": "8.5.23",
+    "sharp": "0.35.3",
+    "nanoid": "3.3.18"
   }
 }
