@@ -5,11 +5,11 @@
 ## 当前状态
 
 - 当前代码版本：`0.6.0`
-- 最新已发布版本：`v0.3.2`
+- 最新已发布版本：`v0.6.0`
 - 默认 README：中文 `README.md`
 - 英文 README：`README.en.md`
 - 中文镜像 README：`README.zh-CN.md`
-- 待发布版本：`v0.6.0`
+- 下一规划版本：`v0.7.0`
 - 默认分支：`master`
 - CI：GitHub Actions `CI`
 - 自动发版：GitHub Actions `Release`

@@ -6,8 +6,8 @@
 
 - 公开仓库已创建：`https://github.com/JinSheng-oam/aliyun-dns-manager`
 - 当前代码版本：`v0.6.0`
-- 当前最新发行版：`v0.3.2`
-- 下一待发布版本：`v0.6.0`
+- 当前最新发行版：`v0.6.0`
+- 下一待发布版本：`v0.7.0`
 - 发行包命名：`aliyun-dns-manager-v版本号.zip`
 - 默认 README 已改为中文，英文版保留为 `README.en.md`
 - README 已面向用户，包含下载、安装、配置、安全建议、部署方式和升级方式
@@ -353,10 +353,11 @@
 - 生产依赖审计结果为 0 个漏洞
 - 发行包确认不包含 `.env` 或 `data/`
 - 本机未安装 Docker CLI，Docker 镜像已由 GitHub Actions 验证
-- 已提交为 `6eb1fde Release v0.6.0`
+- 发布提交为 `36bb714 Fix release dependency audit`
 - 已推送至 `origin/master`
-- 提交 `418228b` 的 GitHub Actions `CI` 和 CodeQL 检查通过
-- 待创建标签并正式发布 `v0.6.0`
+- 标签 `v0.6.0` 已创建并由 GitHub Actions `Release` 成功发布
+- Release 包含 zip 发行包和 SHA256 校验文件
+- Release workflow 运行编号为 `32919434329`
 
 ### v0.7.0：导入导出和迁移增强
 
@@ -406,12 +407,12 @@
 
 ## 下一步执行建议
 
-先完成 `v0.6.0` 发布闭环：
+进入 `v0.7.0` 的导入导出和迁移增强阶段：
 
-1. 创建 `v0.6.0` 标签并推送，由 Release workflow 自动发布
-2. 确认 Release workflow、Docker 构建和发行包内容检查通过
-3. 确认 Release 包含 zip 和 SHA256 校验文件，标题和中文说明格式正确
-4. 发布后观察快照恢复和公网 DNS 检测的真实使用反馈，再进入 `v0.7.0`
+1. 先收集 `v0.6.0` 的快照恢复、健康检查和只读模式使用反馈
+2. 设计可选的 JSON、YAML 或 DNSControl/octoDNS 导入导出格式
+3. 保持普通 CSV 导入流程简单，并继续保留预览和确认
+4. 完成测试、文档和发布验收后再创建 `v0.7.0` 标签
 
 不建议下一步立刻做多用户权限。
 
