@@ -1,4 +1,4 @@
-import type { DnsRecord } from './types';
+import type { DnsRecord, Domain } from './types';
 
 export type DnsStatusFilter = 'All' | 'Enable' | 'Disable';
 
@@ -20,6 +20,16 @@ function isRecordEnabled(status: string | undefined): boolean {
     return !status || status.toUpperCase() === 'ENABLE';
 }
 
+export function filterDomains(domains: Domain[], searchTerm: string): Domain[] {
+    const term = searchTerm.trim().toLowerCase();
+    if (!term) return domains;
+
+    return domains.filter(domain =>
+        domain.domainName.toLowerCase().includes(term) ||
+        domain.versionName.toLowerCase().includes(term)
+    );
+}
+
 export function filterDnsRecords(records: DnsRecord[], filters: DnsRecordFilters): DnsRecord[] {
     const searchTerm = filters.searchTerm.trim().toLowerCase();
     const minTtl = parseTtlBoundary(filters.minTtl);
@@ -39,3 +49,4 @@ export function filterDnsRecords(records: DnsRecord[], filters: DnsRecordFilters
         return matchesSearch && matchesType && matchesStatus && matchesMinTtl && matchesMaxTtl;
     });
 }
+

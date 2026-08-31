@@ -28,11 +28,11 @@ export default function Home() {
       {/* Hero */}
       <header className="text-center space-y-4 max-w-2xl">
         <div
-          className="inline-flex items-center gap-2 rounded-full border px-3 py-1 text-xs font-medium"
-          style={{ borderColor: 'var(--border)', color: 'var(--muted)' }}
+          className="inline-flex items-center gap-2 rounded-full border px-3.5 py-1 text-xs font-medium backdrop-blur-sm"
+          style={{ borderColor: 'var(--border)', backgroundColor: 'var(--surface)', color: 'var(--muted)' }}
         >
           <div
-            className="h-1.5 w-1.5 rounded-full"
+            className="h-2 w-2 rounded-full animate-pulse-subtle"
             style={{ backgroundColor: 'var(--success)' }}
           />
           本地部署 · 数据可控

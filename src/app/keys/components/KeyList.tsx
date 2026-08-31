@@ -9,6 +9,7 @@ import { Trash2, Plus, Eye, EyeOff, Copy, Pencil, Key } from 'lucide-react';
 import { useToast } from '@/components/ui/Toast';
 import { useConfirm } from '@/components/ui/ConfirmDialog';
 import { useRouter } from 'next/navigation';
+import { copyTextToClipboard } from '@/lib/clipboard';
 
 interface KeyListProps {
   initialKeys: AccessKey[];
@@ -49,7 +50,7 @@ export function KeyList({ initialKeys, readError, readOnly = false }: KeyListPro
   const toggleSecret = (id: string) => setShowSecrets(prev => ({ ...prev, [id]: !prev[id] }));
 
   const handleCopy = async (text: string, label: string) => {
-    try { await navigator.clipboard.writeText(text); toast.success(`已复制 ${label}`); }
+    try { await copyTextToClipboard(text); toast.success(`已复制 ${label}`); }
     catch { toast.error('复制失败'); }
   };
 

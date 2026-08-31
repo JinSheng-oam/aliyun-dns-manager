@@ -177,6 +177,87 @@ async function testDnsRecordFiltering() {
     );
 }
 
+async function testDomainFiltering() {
+    const { filterDomains } = await jiti.import(path.join(projectRoot, 'src/lib/dns-filter.ts'));
+    const domains = [
+        { domainId: '1', domainName: 'example.com', recordCount: 10, versionName: '企业版', createTime: '2026-01-01' },
+        { domainId: '2', domainName: 'test-api.org', recordCount: 5, versionName: '免费版', createTime: '2026-01-02' },
+        { domainId: '3', domainName: 'my-shop.cn', recordCount: 20, versionName: '高级版', createTime: '2026-01-03' },
+    ];
+
+    assert.equal(filterDomains(domains, '').length, 3, 'Empty search must return all domains');
+    assert.deepEqual(
+        filterDomains(domains, 'API').map(d => d.domainId),
+        ['2'],
+        'Domain name search must be case-insensitive'
+    );
+    assert.deepEqual(
+        filterDomains(domains, '企业版').map(d => d.domainId),
+        ['1'],
+        'Version name search should match'
+    );
+    assert.equal(
+        filterDomains(domains, 'nonexistent').length,
+        0,
+        'Non-matching search must return empty list'
+    );
+}
+
+async function testClipboardFallback() {
+    const { copyTextToClipboard } = await jiti.import(path.join(projectRoot, 'src/lib/clipboard.ts'));
+    const originalNavigator = Object.getOwnPropertyDescriptor(globalThis, 'navigator');
+    const originalDocument = Object.getOwnPropertyDescriptor(globalThis, 'document');
+    let fallbackText = '';
+    let removed = false;
+    let appended = 0;
+
+    const textarea = {
+        value: '',
+        style: {},
+        setAttribute() {},
+        focus() {},
+        select() {},
+        setSelectionRange() {},
+        remove() { removed = true; },
+    };
+
+    Object.defineProperty(globalThis, 'navigator', {
+        configurable: true,
+        value: { clipboard: { writeText: async () => { throw new Error('permission denied'); } } },
+    });
+    Object.defineProperty(globalThis, 'document', {
+        configurable: true,
+        value: {
+            body: {
+                appendChild(node) {
+                    appended += 1;
+                    fallbackText = node.value;
+                },
+            },
+            createElement(tagName) {
+                assert.equal(tagName, 'textarea');
+                return textarea;
+            },
+            execCommand(command) {
+                assert.equal(command, 'copy');
+                return true;
+            },
+        },
+    });
+
+    try {
+        await copyTextToClipboard('record-value.example.com');
+        assert.equal(fallbackText, 'record-value.example.com', 'Clipboard fallback must copy the requested text');
+        assert.equal(appended, 1, 'Clipboard fallback must create one temporary textarea');
+        assert.equal(removed, true, 'Clipboard fallback must remove the temporary textarea');
+    } finally {
+        if (originalNavigator) Object.defineProperty(globalThis, 'navigator', originalNavigator);
+        else delete globalThis.navigator;
+        if (originalDocument) Object.defineProperty(globalThis, 'document', originalDocument);
+        else delete globalThis.document;
+    }
+}
+
 async function testPaginationAndBatchConcurrency() {
     const { collectAllPages } = await jiti.import(path.join(projectRoot, 'src/lib/pagination.ts'));
     const { mapWithConcurrency } = await jiti.import(path.join(projectRoot, 'src/lib/batch.ts'));
@@ -440,7 +521,9 @@ async function main() {
         ['read-only mode config', testReadOnlyModeConfig],
         ['log CSV export', testLogCsvExport],
         ['DNS history filtering', testDnsHistoryFiltering],
+        ['domain filtering', testDomainFiltering],
         ['DNS record filtering', testDnsRecordFiltering],
+        ['clipboard fallback', testClipboardFallback],
         ['pagination and batch concurrency', testPaginationAndBatchConcurrency],
         ['DNS import preview', testDnsImportPreview],
         ['DNS snapshot restore plan', testDnsSnapshotRestorePlan],

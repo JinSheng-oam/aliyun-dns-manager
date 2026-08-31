@@ -62,7 +62,8 @@ export default function LoginPage() {
           >
             <div className="relative">
               <Lock
-                className="absolute left-3.5 top-1/2 -translate-y-1/2 h-4 w-4 pointer-events-none"
+                aria-hidden="true"
+                className="pointer-events-none absolute inset-y-0 left-4 my-auto h-4 w-4"
                 style={{ color: 'var(--muted)' }}
               />
               <input
@@ -72,13 +73,14 @@ export default function LoginPage() {
                 onChange={(e) => setPassword(e.target.value)}
                 required
                 autoFocus
-                className="field-control w-full pl-10 pr-4"
+                className="field-control w-full pl-12 pr-4"
                 style={{
                   border: 'none',
                   boxShadow: 'none',
                   backgroundColor: 'transparent',
                   height: '48px',
                   fontSize: '15px',
+                  paddingLeft: '3rem',
                 }}
                 onKeyDown={(e) => {
                   if (e.key === 'Enter') e.currentTarget.form?.requestSubmit();

@@ -22,7 +22,8 @@ import {
   Filter, Globe, ArrowLeft, Loader2, Edit2,
   PlayCircle, PauseCircle, X, Copy, History,
   Download, UploadCloud, AlertTriangle, CheckCircle2,
-  FileSpreadsheet, Archive, Search, Stethoscope, RotateCcw
+  FileSpreadsheet, Archive, Search, Stethoscope, RotateCcw,
+  LayoutGrid, List, ChevronLeft, ChevronRight, ChevronsLeft, ChevronsRight, ArrowRight
 } from 'lucide-react';
 import { useToast } from '@/components/ui/Toast';
 import { useConfirm } from '@/components/ui/ConfirmDialog';
@@ -30,10 +31,24 @@ import { LogsViewer } from '@/components/LogsViewer';
 import { DnsHistoryViewer } from '@/components/DnsHistoryViewer';
 import { createDnsImportPreview, createDomainBackup, type DnsImportPreview } from '@/lib/dns-import';
 import type { DnsChangeRecord } from '@/lib/logger';
-import { filterDnsRecords, type DnsStatusFilter } from '@/lib/dns-filter';
+import { filterDnsRecords, filterDomains, type DnsStatusFilter } from '@/lib/dns-filter';
 import { DnsSnapshotsPanel } from '@/components/DnsSnapshotsPanel';
 import { DnsHealthPanel } from '@/components/DnsHealthPanel';
 import type { DnsHealthStatus } from '@/lib/dns-health';
+import { copyTextToClipboard } from '@/lib/clipboard';
+
+function getPaginationRange(current: number, total: number): (number | 'ellipsis')[] {
+  if (total <= 7) {
+    return Array.from({ length: total }, (_, i) => i + 1);
+  }
+  if (current <= 4) {
+    return [1, 2, 3, 4, 5, 'ellipsis', total];
+  }
+  if (current >= total - 3) {
+    return [1, 'ellipsis', total - 4, total - 3, total - 2, total - 1, total];
+  }
+  return [1, 'ellipsis', current - 1, current, current + 1, 'ellipsis', total];
+}
 
 interface DnsManagerProps {
   initialKeys: AccessKey[];
@@ -102,6 +117,8 @@ export function DnsManager({ initialKeys, readOnly = false }: DnsManagerProps) {
   const [domains, setDomains] = useState<Domain[]>([]);
   const [loadingDomains, setLoadingDomains] = useState(false);
   const [selectedDomain, setSelectedDomain] = useState<Domain | null>(null);
+  const [domainSearchTerm, setDomainSearchTerm] = useState('');
+  const [domainViewMode, setDomainViewMode] = useState<'grid' | 'table'>('grid');
 
   // Records
   const [records, setRecords] = useState<DnsRecord[]>([]);
@@ -109,6 +126,10 @@ export function DnsManager({ initialKeys, readOnly = false }: DnsManagerProps) {
   const [selectedRecordIds, setSelectedRecordIds] = useState<Set<string>>(new Set());
   const [activeBatchAction, setActiveBatchAction] = useState<'delete' | 'enable' | 'disable' | null>(null);
   const [batchFeedback, setBatchFeedback] = useState<BatchFeedback | null>(null);
+
+  // Pagination
+  const [pageSize, setPageSize] = useState<number>(20);
+  const [currentPage, setCurrentPage] = useState<number>(1);
 
   // Filter & Sort
   const [searchTerm, setSearchTerm] = useState('');
@@ -185,6 +206,19 @@ export function DnsManager({ initialKeys, readOnly = false }: DnsManagerProps) {
 
   // --- Effects ---
   useEffect(() => {
+    try {
+      const savedMode = localStorage.getItem('domain_view_mode');
+      if (savedMode === 'grid' || savedMode === 'table') {
+        setDomainViewMode(savedMode);
+      }
+    } catch {}
+  }, []);
+
+  useEffect(() => {
+    setCurrentPage(1);
+  }, [searchTerm, typeFilter, statusFilter, minTtlFilter, maxTtlFilter, sortConfig, selectedDomain, pageSize]);
+
+  useEffect(() => {
     if (!selectedKeyId) return;
     const timer = window.setTimeout(() => { void fetchDomainsEvent(); }, 0);
     return () => window.clearTimeout(timer);
@@ -197,6 +231,13 @@ export function DnsManager({ initialKeys, readOnly = false }: DnsManagerProps) {
   }, [selectedKeyId, selectedDomain, refreshRecords]);
 
   // --- Handlers ---
+  const handleViewModeChange = (mode: 'grid' | 'table') => {
+    setDomainViewMode(mode);
+    try {
+      localStorage.setItem('domain_view_mode', mode);
+    } catch {}
+  };
+
   const handleBackToDomains = () => {
     setSelectedDomain(null);
     setRecords([]);
@@ -209,6 +250,7 @@ export function DnsManager({ initialKeys, readOnly = false }: DnsManagerProps) {
     setImportFileName('');
     setIsHistoryOpen(false);
     setBatchFeedback(null);
+    setCurrentPage(1);
     resetForm();
   };
 
@@ -304,7 +346,7 @@ export function DnsManager({ initialKeys, readOnly = false }: DnsManagerProps) {
 
   const handleCopy = async (text: string, label: string) => {
     try {
-      await navigator.clipboard.writeText(text);
+      await copyTextToClipboard(text);
       toast.success(`已复制 ${label}`);
     } catch { toast.error('复制失败'); }
   };
@@ -470,6 +512,8 @@ export function DnsManager({ initialKeys, readOnly = false }: DnsManagerProps) {
   };
 
   // --- Derived ---
+  const filteredDomains = filterDomains(domains, domainSearchTerm);
+
   const filteredAndSortedRecords = filterDnsRecords(records, {
     searchTerm, type: typeFilter, status: statusFilter,
     minTtl: minTtlFilter, maxTtl: maxTtlFilter,
@@ -485,6 +529,13 @@ export function DnsManager({ initialKeys, readOnly = false }: DnsManagerProps) {
     if (aVal > bVal) return direction === 'asc' ? 1 : -1;
     return 0;
   });
+
+  const totalFilteredRecords = filteredAndSortedRecords.length;
+  const totalPages = Math.max(1, Math.ceil(totalFilteredRecords / pageSize));
+  const safePage = Math.min(Math.max(1, currentPage), totalPages);
+  const startIndex = (safePage - 1) * pageSize;
+  const endIndex = Math.min(startIndex + pageSize, totalFilteredRecords);
+  const paginatedRecords = filteredAndSortedRecords.slice(startIndex, endIndex);
 
   const hasActiveFilters = searchTerm || typeFilter !== 'All' || statusFilter !== 'All' || minTtlFilter || maxTtlFilter;
 
@@ -535,9 +586,70 @@ export function DnsManager({ initialKeys, readOnly = false }: DnsManagerProps) {
         {!selectedDomain ? (
           /* ======== Domain List ======== */
           <div className="space-y-4">
-            <div className="flex items-center justify-between gap-3">
-              <h3 className="text-sm font-semibold" style={{ color: 'var(--fg)' }}>域名列表</h3>
-              <div className="flex items-center gap-2">
+            <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3">
+              <div>
+                <h3 className="text-sm font-semibold" style={{ color: 'var(--fg)' }}>域名列表</h3>
+                <p className="text-xs mt-0.5" style={{ color: 'var(--muted)' }}>
+                  {domainSearchTerm
+                    ? `找到 ${filteredDomains.length} 个匹配域名（共 ${domains.length} 个）`
+                    : `共 ${domains.length} 个域名`}
+                </p>
+              </div>
+              <div className="flex flex-wrap items-center gap-2">
+                {/* Search Input */}
+                <div className="relative w-full sm:w-64">
+                  <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-3.5 w-3.5 pointer-events-none" style={{ color: 'var(--muted)' }} />
+                  <input
+                    type="text"
+                    placeholder="搜索域名（如 example.com）..."
+                    value={domainSearchTerm}
+                    onChange={(e) => setDomainSearchTerm(e.target.value)}
+                    className="field-control h-8 text-xs pl-8 pr-7 w-full"
+                    style={{ backgroundColor: 'var(--surface-hover)', border: '1px solid var(--border)', boxShadow: 'none' }}
+                  />
+                  {domainSearchTerm && (
+                    <button
+                      type="button"
+                      onClick={() => setDomainSearchTerm('')}
+                      className="absolute right-2 top-1/2 -translate-y-1/2 p-0.5 rounded-full hover:bg-black/10 dark:hover:bg-white/10"
+                      style={{ color: 'var(--muted)' }}
+                      title="清空搜索"
+                    >
+                      <X className="h-3 w-3" />
+                    </button>
+                  )}
+                </div>
+
+                {/* View Mode Toggle */}
+                <div className="flex items-center rounded-lg border p-0.5" style={{ borderColor: 'var(--border)', backgroundColor: 'var(--surface)' }}>
+                  <button
+                    type="button"
+                    onClick={() => handleViewModeChange('grid')}
+                    className="p-1.5 rounded-md transition-all flex items-center gap-1 text-xs"
+                    style={{
+                      backgroundColor: domainViewMode === 'grid' ? 'var(--accent-light)' : 'transparent',
+                      color: domainViewMode === 'grid' ? 'var(--accent)' : 'var(--muted)',
+                      fontWeight: domainViewMode === 'grid' ? 600 : 400,
+                    }}
+                    title="卡片网格视图"
+                  >
+                    <LayoutGrid className="h-4 w-4" />
+                  </button>
+                  <button
+                    type="button"
+                    onClick={() => handleViewModeChange('table')}
+                    className="p-1.5 rounded-md transition-all flex items-center gap-1 text-xs"
+                    style={{
+                      backgroundColor: domainViewMode === 'table' ? 'var(--accent-light)' : 'transparent',
+                      color: domainViewMode === 'table' ? 'var(--accent)' : 'var(--muted)',
+                      fontWeight: domainViewMode === 'table' ? 600 : 400,
+                    }}
+                    title="列表表格视图"
+                  >
+                    <List className="h-4 w-4" />
+                  </button>
+                </div>
+
                 {loadingDomains && <Loader2 className="h-4 w-4 animate-spin" style={{ color: 'var(--accent)' }} />}
                 {domains.length > 0 && (
                   <Button size="sm" variant="secondary" onClick={handleCheckDomainOverview} isLoading={checkingDomainOverview}>
@@ -553,9 +665,23 @@ export function DnsManager({ initialKeys, readOnly = false }: DnsManagerProps) {
                   <div key={i} className="surface h-28 rounded-xl animate-pulse" style={{ backgroundColor: 'var(--surface-hover)' }} />
                 ))}
               </div>
-            ) : domains.length > 0 ? (
+            ) : domains.length === 0 ? (
+              <div className="surface rounded-xl text-center py-16" style={{ color: 'var(--muted)' }}>
+                <Globe className="h-10 w-10 mx-auto mb-2 opacity-40" />
+                <p className="text-sm">该 AccessKey 下暂无域名</p>
+              </div>
+            ) : filteredDomains.length === 0 ? (
+              <div className="surface rounded-xl text-center py-12 space-y-3" style={{ color: 'var(--muted)' }}>
+                <Search className="h-8 w-8 mx-auto opacity-40" />
+                <p className="text-sm">未找到与 &quot;{domainSearchTerm}&quot; 匹配的域名</p>
+                <Button size="sm" variant="secondary" onClick={() => setDomainSearchTerm('')}>
+                  清空搜索
+                </Button>
+              </div>
+            ) : domainViewMode === 'grid' ? (
+              /* Grid View */
               <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-3">
-                {domains.map(domain => (
+                {filteredDomains.map(domain => (
                   <button
                     key={domain.domainId}
                     onClick={() => setSelectedDomain(domain)}
@@ -594,8 +720,74 @@ export function DnsManager({ initialKeys, readOnly = false }: DnsManagerProps) {
                 ))}
               </div>
             ) : (
-              <div className="surface rounded-xl text-center py-16" style={{ color: 'var(--muted)' }}>
-                <p className="text-sm">该 AccessKey 下暂无域名</p>
+              /* Table View */
+              <div className="surface rounded-xl overflow-hidden">
+                <div className="overflow-x-auto">
+                  <table className="w-full text-sm">
+                    <thead style={{ borderBottom: '1px solid var(--border)' }}>
+                      <tr>
+                        <th className="px-4 py-3 text-left" style={thStyle}>域名</th>
+                        <th className="px-4 py-3 text-left" style={thStyle}>版本</th>
+                        <th className="px-4 py-3 text-left" style={thStyle}>解析记录数</th>
+                        <th className="px-4 py-3 text-left" style={thStyle}>创建时间</th>
+                        <th className="px-4 py-3 text-right" style={thStyle}>操作</th>
+                      </tr>
+                    </thead>
+                    <tbody>
+                      {filteredDomains.map((domain) => (
+                        <tr
+                          key={domain.domainId}
+                          onClick={() => setSelectedDomain(domain)}
+                          className="group cursor-pointer transition-colors"
+                          style={{ borderBottom: '1px solid var(--border)' }}
+                          onMouseEnter={(e) => { e.currentTarget.style.backgroundColor = 'var(--surface-hover)'; }}
+                          onMouseLeave={(e) => { e.currentTarget.style.backgroundColor = 'transparent'; }}
+                        >
+                          <td className="px-4 py-3 font-semibold" style={{ color: 'var(--fg)' }}>
+                            <div className="flex items-center gap-2">
+                              <Globe className="h-4 w-4 shrink-0" style={{ color: 'var(--accent)' }} />
+                              <span>{domain.domainName}</span>
+                              {domainHealth[domain.domainName.toLowerCase()] && (
+                                <span
+                                  className="rounded-full px-2 py-0.5 text-[10px] font-semibold"
+                                  style={healthBadgeStyle(domainHealth[domain.domainName.toLowerCase()])}
+                                >
+                                  {{ healthy: '健康', warning: '需关注', error: '异常' }[domainHealth[domain.domainName.toLowerCase()]]}
+                                </span>
+                              )}
+                            </div>
+                          </td>
+                          <td className="px-4 py-3 text-xs" style={{ color: 'var(--muted)' }}>
+                            {domain.versionName}
+                          </td>
+                          <td className="px-4 py-3 text-xs">
+                            <span
+                              className="font-medium px-2 py-0.5 rounded-md"
+                              style={{ backgroundColor: 'var(--surface-hover)', color: 'var(--fg)' }}
+                            >
+                              {domain.recordCount} 条记录
+                            </span>
+                          </td>
+                          <td className="px-4 py-3 text-xs font-mono" style={{ color: 'var(--muted)' }}>
+                            {new Date(domain.createTime).toLocaleDateString()}
+                          </td>
+                          <td className="px-4 py-3 text-right">
+                            <Button
+                              variant="secondary"
+                              size="sm"
+                              onClick={(e) => {
+                                e.stopPropagation();
+                                setSelectedDomain(domain);
+                              }}
+                            >
+                              管理解析 <ArrowRight className="h-3.5 w-3.5" />
+                            </Button>
+                          </td>
+                        </tr>
+                      ))}
+                    </tbody>
+                  </table>
+                </div>
               </div>
             )}
           </div>
@@ -959,7 +1151,7 @@ export function DnsManager({ initialKeys, readOnly = false }: DnsManagerProps) {
                     </tr>
                   </thead>
                   <tbody>
-                    {filteredAndSortedRecords.map((record) => (
+                    {paginatedRecords.map((record) => (
                       <tr
                         key={record.RecordId}
                         className="group transition-colors"
@@ -1103,10 +1295,124 @@ export function DnsManager({ initialKeys, readOnly = false }: DnsManagerProps) {
               </div>
             </div>
 
-            {/* Record count */}
-            <div className="text-xs text-right" style={{ color: 'var(--muted)' }}>
-              共 {filteredAndSortedRecords.length} 条记录
-              {records.length !== filteredAndSortedRecords.length && ` / 筛选自 ${records.length} 条`}
+            {/* Pagination & Count Bar */}
+            <div className="surface rounded-xl p-3 flex flex-col sm:flex-row items-center justify-between gap-3 text-xs" style={{ border: '1px solid var(--border)' }}>
+              {/* Left: Info range */}
+              <div style={{ color: 'var(--muted)' }}>
+                {totalFilteredRecords > 0 ? (
+                  <>
+                    显示第 <span className="font-semibold" style={{ color: 'var(--fg)' }}>{startIndex + 1}</span> - <span className="font-semibold" style={{ color: 'var(--fg)' }}>{endIndex}</span> 条，
+                    共 <span className="font-semibold" style={{ color: 'var(--fg)' }}>{totalFilteredRecords}</span> 条记录
+                    {records.length !== totalFilteredRecords && `（筛选自 ${records.length} 条）`}
+                  </>
+                ) : (
+                  <>共 0 条记录{records.length > 0 && `（筛选自 ${records.length} 条）`}</>
+                )}
+              </div>
+
+              {/* Right: Page size select & Navigation */}
+              <div className="flex flex-wrap items-center gap-3">
+                {/* Page size selector */}
+                <div className="flex items-center gap-1.5" style={{ color: 'var(--muted)' }}>
+                  <span className="shrink-0">每页显示：</span>
+                  <Select
+                    ariaLabel="每页显示条数"
+                    className="w-28"
+                    value={String(pageSize)}
+                    onValueChange={(val) => setPageSize(Number(val))}
+                    options={[
+                      { value: '10', label: '10 条/页' },
+                      { value: '20', label: '20 条/页' },
+                      { value: '50', label: '50 条/页' },
+                      { value: '100', label: '100 条/页' },
+                    ]}
+                  />
+                </div>
+
+                {/* Navigation buttons */}
+                {totalPages > 1 && (
+                  <div className="flex items-center gap-1">
+                    <Button
+                      variant="ghost"
+                      size="icon"
+                      className="h-8 w-8"
+                      onClick={() => setCurrentPage(1)}
+                      disabled={safePage === 1}
+                      title="首页"
+                    >
+                      <ChevronsLeft className="h-4 w-4" />
+                    </Button>
+                    <Button
+                      variant="ghost"
+                      size="icon"
+                      className="h-8 w-8"
+                      onClick={() => setCurrentPage((p) => Math.max(1, p - 1))}
+                      disabled={safePage === 1}
+                      title="上一页"
+                    >
+                      <ChevronLeft className="h-4 w-4" />
+                    </Button>
+
+                    {/* Numeric page buttons */}
+                    <div className="flex items-center gap-1">
+                      {getPaginationRange(safePage, totalPages).map((item, index) =>
+                        item === 'ellipsis' ? (
+                          <span key={`ellipsis-${index}`} className="px-1 text-xs" style={{ color: 'var(--muted)' }}>
+                            …
+                          </span>
+                        ) : (
+                          <button
+                            key={item}
+                            type="button"
+                            onClick={() => setCurrentPage(item)}
+                            className="h-8 min-w-[32px] px-2 rounded-md text-xs font-medium transition-all"
+                            style={{
+                              backgroundColor: safePage === item ? 'var(--accent)' : 'transparent',
+                              color: safePage === item ? '#fff' : 'var(--muted)',
+                              border: safePage === item ? 'none' : '1px solid var(--border)',
+                            }}
+                            onMouseEnter={(e) => {
+                              if (safePage !== item) {
+                                e.currentTarget.style.backgroundColor = 'var(--surface-hover)';
+                                e.currentTarget.style.color = 'var(--fg)';
+                              }
+                            }}
+                            onMouseLeave={(e) => {
+                              if (safePage !== item) {
+                                e.currentTarget.style.backgroundColor = 'transparent';
+                                e.currentTarget.style.color = 'var(--muted)';
+                              }
+                            }}
+                          >
+                            {item}
+                          </button>
+                        )
+                      )}
+                    </div>
+
+                    <Button
+                      variant="ghost"
+                      size="icon"
+                      className="h-8 w-8"
+                      onClick={() => setCurrentPage((p) => Math.min(totalPages, p + 1))}
+                      disabled={safePage === totalPages}
+                      title="下一页"
+                    >
+                      <ChevronRight className="h-4 w-4" />
+                    </Button>
+                    <Button
+                      variant="ghost"
+                      size="icon"
+                      className="h-8 w-8"
+                      onClick={() => setCurrentPage(totalPages)}
+                      disabled={safePage === totalPages}
+                      title="末页"
+                    >
+                      <ChevronsRight className="h-4 w-4" />
+                    </Button>
+                  </div>
+                )}
+              </div>
             </div>
           </div>
         )}
