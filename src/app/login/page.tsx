@@ -41,10 +41,10 @@ export default function LoginPage() {
         {/* Brand header */}
         <div className="text-center space-y-3">
           <div
-            className="inline-flex items-center justify-center h-12 w-12 rounded-xl"
-            style={{ backgroundColor: 'var(--accent-light)', color: 'var(--accent)' }}
+            className="inline-flex items-center justify-center h-14 w-14 rounded-2xl shadow-sm p-2"
+            style={{ backgroundColor: 'var(--surface)', border: '1px solid var(--border)' }}
           >
-            <Globe className="h-6 w-6" />
+            <img src="/icon.png" alt="Logo" className="h-full w-full object-contain" />
           </div>
           <h1 className="text-xl font-bold tracking-tight" style={{ color: 'var(--fg)' }}>
             Aliyun DNS Manager

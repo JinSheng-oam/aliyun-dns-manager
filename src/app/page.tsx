@@ -26,9 +26,15 @@ export default function Home() {
   return (
     <div className="flex flex-col items-center justify-center min-h-[75vh] gap-12 animate-in fade-in slide-in-from-bottom-4 duration-500">
       {/* Hero */}
-      <header className="text-center space-y-4 max-w-2xl">
+      <header className="text-center space-y-4 max-w-2xl flex flex-col items-center">
         <div
-          className="inline-flex items-center gap-2 rounded-full border px-3.5 py-1 text-xs font-medium backdrop-blur-sm"
+          className="h-16 w-16 mb-1 rounded-2xl p-2.5 flex items-center justify-center surface shadow-sm"
+          style={{ border: '1px solid var(--border)' }}
+        >
+          <img src="/icon.png" alt="Aliyun DNS Manager Logo" className="h-full w-full object-contain" />
+        </div>
+        <div
+          className="inline-flex items-center gap-2 rounded-full border px-3.5 py-1 text-xs font-medium"
           style={{ borderColor: 'var(--border)', backgroundColor: 'var(--surface)', color: 'var(--muted)' }}
         >
           <div

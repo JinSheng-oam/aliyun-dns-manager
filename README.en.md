@@ -1,14 +1,25 @@
-# Aliyun DNS Manager
+<p align="center">
+  <img src="./public/logo.png" alt="Aliyun DNS Manager Logo" width="100" height="100" />
+</p>
 
-[简体中文](./README.md) | English
+<h1 align="center">Aliyun DNS Manager</h1>
 
-A lightweight, self-hosted web console for managing Alibaba Cloud DNS (AliDNS) with local AES-256 encrypted credential storage, instant multi-account switching, millisecond search, smart health diagnostics, and **automatic safety snapshots with one-click rollback**.
+<p align="center">
+  <a href="./README.md">简体中文</a> | <strong>English</strong>
+</p>
 
-![License](https://img.shields.io/badge/license-MIT-blue.svg)
-![Next.js](https://img.shields.io/badge/Next.js-16-black.svg)
-![React](https://img.shields.io/badge/React-19-149eca.svg)
-![TailwindCSS](https://img.shields.io/badge/TailwindCSS-4-38B2AC.svg)
-![Version](https://img.shields.io/badge/version-v0.7.1-emerald.svg)
+<p align="center">
+  A lightweight, self-hosted web console for managing Alibaba Cloud DNS (AliDNS) with local AES-256 encrypted credential storage,<br/>
+  instant multi-account switching, millisecond search, smart health diagnostics, and <strong>automatic safety snapshots with one-click rollback</strong>.
+</p>
+
+<p align="center">
+  <img src="https://img.shields.io/badge/license-MIT-blue.svg" alt="License" />
+  <img src="https://img.shields.io/badge/Next.js-16-black.svg" alt="Next.js" />
+  <img src="https://img.shields.io/badge/React-19-149eca.svg" alt="React" />
+  <img src="https://img.shields.io/badge/TailwindCSS-4-38B2AC.svg" alt="TailwindCSS" />
+  <img src="https://img.shields.io/badge/version-v0.7.1-emerald.svg" alt="Version" />
+</p>
 
 ---
 

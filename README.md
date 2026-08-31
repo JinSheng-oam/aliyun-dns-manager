@@ -1,14 +1,25 @@
-# 阿里云 DNS 管理器 (Aliyun DNS Manager)
+<p align="center">
+  <img src="./public/logo.png" alt="Aliyun DNS Manager Logo" width="100" height="100" />
+</p>
 
-[English](./README.en.md) | 简体中文
+<h1 align="center">阿里云 DNS 管理器 (Aliyun DNS Manager)</h1>
 
-一个专为个人运维与团队打造的**轻量级、自托管阿里云 DNS 在线管理后台**。支持多套 AccessKey 本地加密存储与无缝切换，提供毫秒级搜索筛选、DNS 智能健康体检、批量操作以及**修改前自动快照与安全一键回滚**。
+<p align="center">
+  <a href="./README.en.md">English</a> | <strong>简体中文</strong>
+</p>
 
-![授权](https://img.shields.io/badge/license-MIT-blue.svg)
-![Next.js](https://img.shields.io/badge/Next.js-16-black.svg)
-![React](https://img.shields.io/badge/React-19-149eca.svg)
-![TailwindCSS](https://img.shields.io/badge/TailwindCSS-4-38B2AC.svg)
-![Version](https://img.shields.io/badge/version-v0.7.1-emerald.svg)
+<p align="center">
+  一个专为个人运维与团队打造的<strong>轻量级、自托管阿里云 DNS 在线管理后台</strong>。<br/>
+  支持多套 AccessKey 本地加密存储与无缝切换，提供毫秒级搜索筛选、DNS 智能健康体检、批量操作以及<strong>修改前自动快照与安全一键回滚</strong>。
+</p>
+
+<p align="center">
+  <img src="https://img.shields.io/badge/license-MIT-blue.svg" alt="授权" />
+  <img src="https://img.shields.io/badge/Next.js-16-black.svg" alt="Next.js" />
+  <img src="https://img.shields.io/badge/React-19-149eca.svg" alt="React" />
+  <img src="https://img.shields.io/badge/TailwindCSS-4-38B2AC.svg" alt="TailwindCSS" />
+  <img src="https://img.shields.io/badge/version-v0.7.1-emerald.svg" alt="Version" />
+</p>
 
 ---
 

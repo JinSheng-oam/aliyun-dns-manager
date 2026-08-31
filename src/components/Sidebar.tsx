@@ -77,10 +77,10 @@ export function Sidebar() {
       <div className="flex items-center justify-between px-5 h-14 shrink-0" style={{ borderBottom: '1px solid var(--border)' }}>
         <Link href="/" className="flex items-center gap-2.5">
           <div
-            className="h-8 w-8 rounded-lg flex items-center justify-center"
-            style={{ backgroundColor: 'var(--accent-light)', color: 'var(--accent)' }}
+            className="h-8 w-8 rounded-lg flex items-center justify-center overflow-hidden p-0.5"
+            style={{ backgroundColor: 'var(--surface-hover)', border: '1px solid var(--border)' }}
           >
-            <Globe className="h-4 w-4" />
+            <img src="/icon.png" alt="Logo" className="h-full w-full object-contain" />
           </div>
           <span className="text-sm font-semibold tracking-tight" style={{ color: 'var(--fg)' }}>
             Aliyun DNS
