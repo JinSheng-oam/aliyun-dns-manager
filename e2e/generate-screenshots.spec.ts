@@ -12,8 +12,31 @@ test.describe('Generate Documentation Screenshots', () => {
   test('Generate full suite of rich UI screenshots', async ({ page }) => {
     await page.setViewportSize({ width: 1280, height: 800 });
 
+    const hideDevTools = async () => {
+      await page.addStyleTag({
+        content: `
+          nextjs-portal,
+          #nextjs-dev-tools,
+          [data-nextjs-toast],
+          [data-nextjs-dialog-overlay],
+          [data-nextjs-dev-tools-button],
+          button[aria-label*="Next.js"],
+          div[data-nextjs-root] {
+            display: none !important;
+            opacity: 0 !important;
+            visibility: hidden !important;
+            pointer-events: none !important;
+          }
+        `,
+      }).catch(() => {});
+    };
+
+    page.on('load', hideDevTools);
+    page.on('domcontentloaded', hideDevTools);
+
     // 1. Login
     await page.goto('/login');
+    await hideDevTools();
     await page.getByPlaceholder('管理员密码').fill('e2e-admin-password');
     await page.getByRole('button', { name: '验证并进入' }).click();
     await expect(page).toHaveURL(/\/$/);
@@ -40,6 +63,7 @@ test.describe('Generate Documentation Screenshots', () => {
     // 3. Capture Dashboard (Light Mode)
     await page.goto('/');
     await page.waitForTimeout(500);
+    await hideDevTools();
     await page.screenshot({ path: path.join(screenshotsDir, '01-dashboard-light.png') });
 
     // 4. Capture Domain List (Grid View - Dark Mode)
@@ -54,6 +78,7 @@ test.describe('Generate Documentation Screenshots', () => {
 
     await page.getByRole('button', { name: '深色模式' }).click();
     await page.waitForTimeout(400);
+    await hideDevTools();
     await page.screenshot({ path: path.join(screenshotsDir, '02-domains-grid-dark.png') });
 
     // Switch back to light mode
@@ -63,12 +88,14 @@ test.describe('Generate Documentation Screenshots', () => {
     // 5. Capture Domain List (Table View - Light Mode)
     await page.getByTitle('列表表格视图').click();
     await page.waitForTimeout(400);
+    await hideDevTools();
     await page.screenshot({ path: path.join(screenshotsDir, '03-domains-table-light.png') });
 
     // 6. Enter Domain (DNS Records View)
     await page.getByText('example.com').first().click();
     await expect(page.getByText('104.21.58.102')).toBeVisible();
     await page.waitForTimeout(400);
+    await hideDevTools();
     await page.screenshot({ path: path.join(screenshotsDir, '04-dns-records-light.png') });
 
     // 7. Capture Snapshots Panel (with created snapshot)
@@ -79,6 +106,7 @@ test.describe('Generate Documentation Screenshots', () => {
       await createSnapshotBtn.click();
       await page.waitForTimeout(800);
     }
+    await hideDevTools();
     await page.screenshot({ path: path.join(screenshotsDir, '06-dns-snapshots.png') });
     await page.getByTitle('关闭快照面板').click();
     await page.waitForTimeout(300);
@@ -87,6 +115,7 @@ test.describe('Generate Documentation Screenshots', () => {
     await page.getByTitle('健康检查').click();
     await expect(page.getByText('DNS 健康检查')).toBeVisible();
     await page.waitForTimeout(1500);
+    await hideDevTools();
     await page.screenshot({ path: path.join(screenshotsDir, '05-dns-health-check.png') });
     await page.getByTitle('关闭健康检查').click();
     await page.waitForTimeout(300);
@@ -98,6 +127,7 @@ test.describe('Generate Documentation Screenshots', () => {
       await logsBtn.click();
       await expect(page.getByRole('dialog', { name: '操作日志' })).toBeVisible();
       await page.waitForTimeout(600);
+      await hideDevTools();
       await page.screenshot({ path: path.join(screenshotsDir, '07-logs-viewer.png') });
       await page.getByTitle('关闭').click();
     }
@@ -106,6 +136,7 @@ test.describe('Generate Documentation Screenshots', () => {
     await page.goto('/security');
     await expect(page.getByText('安全检查').first()).toBeVisible();
     await page.waitForTimeout(400);
+    await hideDevTools();
     await page.screenshot({ path: path.join(screenshotsDir, '08-security-audit.png') });
   });
 });
