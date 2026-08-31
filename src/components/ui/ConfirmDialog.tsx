@@ -55,13 +55,13 @@ export function ConfirmProvider({ children }: { children: React.ReactNode }) {
       {children}
 
       {pendingConfirm && (
-        <div className="fixed inset-0 z-[100] flex items-center justify-center bg-black/30 px-4 backdrop-blur-sm animate-in fade-in duration-150">
+        <div className="fixed inset-0 z-[100] flex items-center justify-center bg-black/20 dark:bg-black/60 px-4 animate-in fade-in duration-150">
           <div
             role="alertdialog"
             aria-modal="true"
             aria-labelledby="confirm-dialog-title"
             aria-describedby="confirm-dialog-description"
-            className="w-full max-w-md rounded-2xl border p-6 shadow-xl animate-in zoom-in-95 duration-150"
+            className="w-full max-w-md rounded-xl border p-6 shadow-xl animate-in zoom-in-95 duration-150"
             style={{ borderColor: 'var(--border)', backgroundColor: 'var(--surface)' }}
           >
             <div className="flex items-start gap-4">

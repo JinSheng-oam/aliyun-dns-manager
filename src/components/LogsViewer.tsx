@@ -84,16 +84,15 @@ export function LogsViewer({ isOpen, onClose }: LogsViewerProps) {
     link.href = url;
     link.download = `aliyun-dns-logs-${new Date().toISOString().replace(/[:.]/g, '-')}.csv`;
     link.click();
-    URL.revokeObjectURL(url);
   };
 
   if (!isOpen) return null;
 
   return (
     <div className="fixed inset-0 z-50 flex items-center justify-center p-3 sm:p-6">
-      {/* Backdrop */}
+      {/* Backdrop — clean, transparent dimming without muddy blur */}
       <div
-        className="fixed inset-0 bg-black/40 backdrop-blur-sm animate-in fade-in duration-150"
+        className="fixed inset-0 bg-black/20 dark:bg-black/60 transition-opacity duration-150"
         onClick={onClose}
       />
 
@@ -102,7 +101,7 @@ export function LogsViewer({ isOpen, onClose }: LogsViewerProps) {
         role="dialog"
         aria-modal="true"
         aria-labelledby="logs-viewer-title"
-        className="relative z-10 w-full max-w-4xl max-h-[85vh] flex flex-col rounded-2xl border shadow-2xl animate-in zoom-in-95 duration-150 overflow-hidden text-left pointer-events-auto"
+        className="relative z-10 w-full max-w-4xl max-h-[80vh] flex flex-col rounded-xl border shadow-xl animate-in zoom-in-95 duration-150 overflow-hidden text-left pointer-events-auto"
         style={{ borderColor: 'var(--border)', backgroundColor: 'var(--surface)' }}
       >
         {/* Header */}
