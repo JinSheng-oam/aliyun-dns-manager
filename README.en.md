@@ -2,35 +2,46 @@
 
 [简体中文](./README.md) | English
 
-A self-hosted web console for managing Alibaba Cloud DNS records with local credential storage, multi-account support, and a simple browser-based workflow.
+A lightweight, self-hosted web console for managing Alibaba Cloud DNS (AliDNS) with local AES-256 encrypted credential storage, instant multi-account switching, millisecond search, smart health diagnostics, and **automatic safety snapshots with one-click rollback**.
 
 ![License](https://img.shields.io/badge/license-MIT-blue.svg)
 ![Next.js](https://img.shields.io/badge/Next.js-16-black.svg)
 ![React](https://img.shields.io/badge/React-19-149eca.svg)
 ![TailwindCSS](https://img.shields.io/badge/TailwindCSS-4-38B2AC.svg)
+![Version](https://img.shields.io/badge/version-v0.7.1-emerald.svg)
 
-## What It Does
+---
 
-Aliyun DNS Manager helps you manage Alibaba Cloud DNS in a cleaner way than working directly in the cloud console.
+## 📸 Screenshots
 
-You can use it to:
+### 1. DNS Records Management (Instant Filter, Type Badges, Status Pills & Batch Operations)
+![DNS Records Management](./docs/screenshots/04-dns-records-light.png)
 
-- store and manage multiple Aliyun AccessKeys locally
-- automatically load every page of domains and DNS records under a selected account
-- view, search, sort, and filter DNS records by type, status, and TTL range
-- add, edit, enable, disable, and delete DNS records
-- batch delete or change record status with success and failure details
-- import and export DNS records as CSV, with a preview of additions, skipped rows, and errors
-- export a complete, re-importable JSON backup for each domain
-- view add, update, delete, and status-change history for the selected domain
-- automatically snapshot DNS records before writes, preview restores, and roll back failed restores
-- check record formats, conflicts, TTL values, paused records, and current public DNS results
-- view a health overview across all domains
-- enable a server-enforced read-only mode for viewing, health checks, exports, and snapshots
-- protect the admin panel with password login
-- check password, session signing, local encryption, and HTTPS cookie configuration
-- search, filter, and export operation logs with high-risk operation labels
-- back up and restore local AccessKey data, operation logs, and DNS snapshots
+### 2. Domain Management (Grid Card & Data Table Views with Dark Mode)
+| Grid View (Dark Mode) | Table View (Light Mode) |
+| :---: | :---: |
+| ![Domain Grid View](./docs/screenshots/02-domains-grid-dark.png) | ![Domain Table View](./docs/screenshots/03-domains-table-light.png) |
+
+### 3. Smart DNS Health Diagnostic & Automatic Safety Snapshots
+| Smart DNS Health Check & Diagnostics | Automatic Snapshot & One-Click Rollback |
+| :---: | :---: |
+| ![DNS Health Diagnostic](./docs/screenshots/05-dns-health-check.png) | ![Snapshots and Rollback](./docs/screenshots/06-dns-snapshots.png) |
+
+### 4. Audit Logs & Deployment Security Checklist
+| Operation Audit Logs & CSV Export | Deployment Security Checklist |
+| :---: | :---: |
+| ![Audit Logs](./docs/screenshots/07-logs-viewer.png) | ![Security Audit](./docs/screenshots/08-security-audit.png) |
+
+---
+
+## ✨ Key Features
+
+- 🔑 **Multi-Account Switching**: Store multiple Alibaba Cloud AccessKeys locally with AES-256-GCM encryption. Switch accounts instantly without tedious MFA/SMS verifications.
+- 🛡️ **Safety Snapshots & Rollback**: Automatic snapshots created before every write operation. Rollback automatically on failure or restore with one click.
+- 🩺 **DNS Health Diagnostic**: Automatically identify CNAME conflicts, invalid TXT formats, abnormal TTL values, and verify live public DNS propagation.
+- ⚡ **Instant Search & Batch Operations**: Real-time filtering by hostname, record value, type, status, and TTL range. Batch enable, pause, or delete records.
+- 📁 **Import & Complete Backups**: CSV import with pre-flight change preview (identifying additions, skips, and errors), CSV export, and per-domain JSON backups.
+- 🔒 **Comprehensive Security**: Password login protection, brute-force rate limiting, server-enforced read-only mode, and sensitive data redaction.
 
 ## Who It Is For
 

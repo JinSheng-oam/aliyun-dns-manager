@@ -1,36 +1,47 @@
-# 阿里云 DNS 管理器
+# 阿里云 DNS 管理器 (Aliyun DNS Manager)
 
 [English](./README.en.md) | 简体中文
 
-一个适合自托管使用的阿里云 DNS 在线管理后台，支持本地保存凭据、多账号切换，以及通过浏览器完成常见 DNS 管理操作。
+一个专为个人运维与团队打造的**轻量级、自托管阿里云 DNS 在线管理后台**。支持多套 AccessKey 本地加密存储与无缝切换，提供毫秒级搜索筛选、DNS 智能健康体检、批量操作以及**修改前自动快照与安全一键回滚**。
 
 ![授权](https://img.shields.io/badge/license-MIT-blue.svg)
 ![Next.js](https://img.shields.io/badge/Next.js-16-black.svg)
 ![React](https://img.shields.io/badge/React-19-149eca.svg)
 ![TailwindCSS](https://img.shields.io/badge/TailwindCSS-4-38B2AC.svg)
+![Version](https://img.shields.io/badge/version-v0.7.1-emerald.svg)
 
-## 功能说明
+---
 
-阿里云 DNS 管理器适合用来替代繁琐的云控制台操作，让日常解析维护更直观。
+## 📸 界面预览 (Screenshots)
 
-你可以用它来：
+### 1. DNS 解析记录管理（支持按主机、类型、状态、TTL 多维实时筛选与批量操作）
+![DNS 解析记录管理](./docs/screenshots/04-dns-records-light.png)
 
-- 在本地保存并管理多个阿里云 AccessKey
-- 自动翻页并查看某个账号下的全部域名和解析记录
-- 查询、搜索，并按类型、状态、TTL 范围筛选和排序 DNS 记录
-- 新增、编辑、启用、暂停、删除 DNS 记录
-- 批量删除或批量修改记录状态，并查看成功、失败数量和失败明细
-- 通过 CSV 导入和导出解析记录，导入前预览新增、跳过和错误项
-- 按域名导出可重新导入的完整 JSON 备份
-- 按当前域名查看新增、修改、删除和状态变更历史
-- 在每次 DNS 写操作前自动创建快照，支持恢复预览和失败自动回滚
-- 检查 DNS 记录格式、冲突、TTL、暂停状态和当前公网解析结果
-- 在域名列表查看批量健康概览
-- 使用只读模式开放查询、检测和导出，同时在服务器端阻止写操作
-- 使用管理员密码保护后台入口
-- 检查密码、会话签名、本地加密和 HTTPS Cookie 配置状态
-- 搜索、筛选并导出操作日志，高风险操作会单独标记
-- 备份和恢复本地 AccessKey、操作日志及 DNS 快照
+### 2. 域名列表（支持网格卡片 / 数据表格双视图与深色模式）
+| 网格视图（深色模式） | 表格视图（浅色模式） |
+| :---: | :---: |
+| ![域名网格视图（深色模式）](./docs/screenshots/02-domains-grid-dark.png) | ![域名表格视图（浅色模式）](./docs/screenshots/03-domains-table-light.png) |
+
+### 3. DNS 智能健康诊断 & 写操作前自动安全快照回滚
+| DNS 智能健康检查与格式诊断 | 变更前自动快照与一键回滚 |
+| :---: | :---: |
+| ![DNS 智能健康检查](./docs/screenshots/05-dns-health-check.png) | ![快照与安全恢复](./docs/screenshots/06-dns-snapshots.png) |
+
+### 4. 操作审计日志 & 安全部署体检
+| 操作日志与 CSV 导出 | 部署安全配置检查 |
+| :---: | :---: |
+| ![操作审计日志](./docs/screenshots/07-logs-viewer.png) | ![安全配置体检](./docs/screenshots/08-security-audit.png) |
+
+---
+
+## ✨ 核心特色
+
+- 🔑 **多账号无缝切换**：本地 AES-256-GCM 加密存储多个阿里云 AccessKey，免去频繁登出和手机验证码。
+- 🛡️ **安全快照与自动回滚**：每次新增、修改、删除或批量操作前**自动备份当前状态快照**，写操作异常时自动回滚，支持一键还原。
+- 🩺 **DNS 智能体检**：自动排查 CNAME 冲突、TXT 格式、异常 TTL 及公网实时生效一致性。
+- ⚡ **毫秒级检索与批量操作**：支持按主机记录、记录值即时搜索，类型/状态过滤，批量启用、暂停与删除。
+- 📁 **灵活导入与备份**：支持 CSV 解析记录导入预览（防错排查）、导出及单域名 JSON 完整备份。
+- 🔒 **多重安全防护**：内置管理员密码保护、登录防爆破速率限制、只读观察模式以及敏感信息脱敏。
 
 ## 适用场景
 
