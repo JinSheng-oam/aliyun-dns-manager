@@ -1,6 +1,7 @@
 'use client';
 
 import Link from 'next/link';
+import Image from 'next/image';
 import { usePathname } from 'next/navigation';
 import { Key, Globe, LayoutDashboard, LogOut, ShieldCheck, X, Menu, Sun, Moon } from 'lucide-react';
 import { logoutAction } from '@/app/actions';
@@ -80,7 +81,7 @@ export function Sidebar() {
             className="h-8 w-8 rounded-lg flex items-center justify-center overflow-hidden p-0.5"
             style={{ backgroundColor: 'var(--surface-hover)', border: '1px solid var(--border)' }}
           >
-            <img src="/icon.png" alt="Logo" className="h-full w-full object-contain" />
+            <Image src="/icon.png" alt="Logo" width={32} height={32} className="h-full w-full object-contain" priority />
           </div>
           <span className="text-sm font-semibold tracking-tight" style={{ color: 'var(--fg)' }}>
             Aliyun DNS

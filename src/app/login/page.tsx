@@ -1,9 +1,10 @@
 'use client';
 
 import { useState } from 'react';
+import Image from 'next/image';
 import { loginAction } from '@/app/actions';
 import { Button } from '@/components/ui/Button';
-import { Lock, Globe } from 'lucide-react';
+import { Lock } from 'lucide-react';
 
 export default function LoginPage() {
   const [password, setPassword] = useState('');
@@ -44,7 +45,7 @@ export default function LoginPage() {
             className="inline-flex items-center justify-center h-14 w-14 rounded-2xl shadow-sm p-2"
             style={{ backgroundColor: 'var(--surface)', border: '1px solid var(--border)' }}
           >
-            <img src="/icon.png" alt="Logo" className="h-full w-full object-contain" />
+            <Image src="/icon.png" alt="Logo" width={56} height={56} className="h-full w-full object-contain" priority />
           </div>
           <h1 className="text-xl font-bold tracking-tight" style={{ color: 'var(--fg)' }}>
             Aliyun DNS Manager

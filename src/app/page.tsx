@@ -1,4 +1,5 @@
 import Link from 'next/link';
+import Image from 'next/image';
 import { ArrowRight, ShieldCheck, Globe, Key, ClipboardCheck } from 'lucide-react';
 
 const cards = [
@@ -31,7 +32,7 @@ export default function Home() {
           className="h-16 w-16 mb-1 rounded-2xl p-2.5 flex items-center justify-center surface shadow-sm"
           style={{ border: '1px solid var(--border)' }}
         >
-          <img src="/icon.png" alt="Aliyun DNS Manager Logo" className="h-full w-full object-contain" />
+          <Image src="/icon.png" alt="Aliyun DNS Manager Logo" width={64} height={64} className="h-full w-full object-contain" priority />
         </div>
         <div
           className="inline-flex items-center gap-2 rounded-full border px-3.5 py-1 text-xs font-medium"

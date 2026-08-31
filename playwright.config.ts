@@ -1,5 +1,5 @@
 import path from 'node:path';
-import { defineConfig, devices } from '@playwright/test';
+import { defineConfig } from '@playwright/test';
 
 const appDataDir = path.join(process.cwd(), '.e2e-data');
 
