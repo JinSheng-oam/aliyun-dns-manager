@@ -37,6 +37,18 @@ function getHistorySummary(log: LogEntry): string {
   return `共 ${context.records.length} 条记录`;
 }
 
+function formatHistoryTime(timestamp: string | number | Date): string {
+  const d = new Date(timestamp);
+  if (isNaN(d.getTime())) return String(timestamp);
+  const year = d.getFullYear();
+  const month = String(d.getMonth() + 1).padStart(2, '0');
+  const day = String(d.getDate()).padStart(2, '0');
+  const hours = String(d.getHours()).padStart(2, '0');
+  const minutes = String(d.getMinutes()).padStart(2, '0');
+  const seconds = String(d.getSeconds()).padStart(2, '0');
+  return `${year}-${month}-${day} ${hours}:${minutes}:${seconds}`;
+}
+
 export function DnsHistoryViewer({ domain, isOpen, onClose }: DnsHistoryViewerProps) {
   const [logs, setLogs] = useState<LogEntry[]>([]);
   const [isLoading, setIsLoading] = useState(false);
@@ -57,23 +69,21 @@ export function DnsHistoryViewer({ domain, isOpen, onClose }: DnsHistoryViewerPr
   if (!isOpen) return null;
 
   return (
-    <div className="fixed inset-0 z-50 overflow-y-auto">
+    <div className="fixed inset-0 z-50 flex items-center justify-center p-3 sm:p-6">
       {/* Backdrop */}
       <div
         className="fixed inset-0 bg-black/40 backdrop-blur-sm animate-in fade-in duration-150"
         onClick={onClose}
       />
 
-      {/* Center wrapper */}
-      <div className="flex min-h-full items-center justify-center p-3 sm:p-6 text-center">
-        <div
-          role="dialog"
-          aria-modal="true"
-          aria-labelledby="history-viewer-title"
-          className="relative w-full max-w-4xl h-[85vh] max-h-[750px] min-h-[420px] flex flex-col rounded-xl border shadow-2xl animate-in zoom-in-95 duration-150 overflow-hidden text-left pointer-events-auto"
-          style={{ borderColor: 'var(--border)', backgroundColor: 'var(--surface)' }}
-        >
-
+      {/* Modal Dialog */}
+      <div
+        role="dialog"
+        aria-modal="true"
+        aria-labelledby="history-viewer-title"
+        className="relative z-10 w-full max-w-4xl max-h-[85vh] flex flex-col rounded-2xl border shadow-2xl animate-in zoom-in-95 duration-150 overflow-hidden text-left pointer-events-auto"
+        style={{ borderColor: 'var(--border)', backgroundColor: 'var(--surface)' }}
+      >
         {/* Header */}
         <div className="flex items-center justify-between p-4 shrink-0 border-b" style={{ borderColor: 'var(--border)', backgroundColor: 'var(--surface)' }}>
           <div>
@@ -131,7 +141,7 @@ export function DnsHistoryViewer({ domain, isOpen, onClose }: DnsHistoryViewerPr
                         {log.error && <p className="mt-1 text-xs" style={{ color: 'var(--danger)' }}>{log.error}</p>}
                       </div>
                       <time className="shrink-0 font-mono text-xs" style={{ color: 'var(--muted)' }}>
-                        {new Date(log.timestamp).toLocaleString()}
+                        {formatHistoryTime(log.timestamp)}
                       </time>
                     </div>
                   </article>
@@ -142,6 +152,5 @@ export function DnsHistoryViewer({ domain, isOpen, onClose }: DnsHistoryViewerPr
         </div>
       </div>
     </div>
-  </div>
   );
 }
