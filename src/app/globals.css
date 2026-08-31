@@ -132,6 +132,11 @@ body {
   box-shadow: var(--shadow-xs);
 }
 
+.field-control-search {
+  padding-left: 2.25rem !important;
+  padding-right: 2rem !important;
+}
+
 .field-control::placeholder {
   color: oklch(68% 0.01 250);
 }
@@ -268,13 +273,26 @@ body {
   background: var(--surface);
   border: 1px solid var(--border);
   border-radius: var(--r-lg);
-  box-shadow: var(--shadow-sm);
+  box-shadow: var(--shadow-xs);
+}
+
+.surface-hover {
   transition: border-color 150ms ease, box-shadow 150ms ease;
 }
 
 .surface-hover:hover {
   border-color: var(--border-hover);
   box-shadow: var(--shadow-md);
+}
+
+/* Base button and interactive resets */
+button {
+  outline: none;
+}
+
+button:focus-visible {
+  outline: 2px solid var(--accent);
+  outline-offset: 2px;
 }
 
 /* Monospace utility */

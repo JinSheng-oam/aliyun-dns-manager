@@ -35,7 +35,7 @@ function recordName(record: DnsRecord, domain: string): string {
 function looksLikeHostname(value: string): boolean {
     const normalized = value.replace(/\.$/, '');
     return normalized.length <= 253 && normalized.split('.').every(label =>
-        label.length > 0 && label.length <= 63 && /^[a-z0-9](?:[a-z0-9-]*[a-z0-9])?$/i.test(label)
+        label.length > 0 && label.length <= 63 && /^[a-z0-9_](?:[a-z0-9_-]*[a-z0-9_])?$/i.test(label)
     );
 }
 
@@ -78,15 +78,15 @@ export function analyzeDnsRecords(domain: string, records: DnsRecord[]): DnsHeal
         }
         if (record.TTL < 60) {
             issues.push({
-                code: 'TTL_TOO_LOW', severity: 'error', title: 'TTL 过低',
+                code: 'TTL_TOO_LOW', severity: 'warning', title: 'TTL 过低',
                 message: `${record.RR} ${record.Type} 的 TTL 为 ${record.TTL} 秒。`,
                 suggestion: '建议将 TTL 调整到至少 60 秒；常规业务可使用 600 秒。', recordIds: [record.RecordId],
             });
-        } else if (record.TTL < 600 || record.TTL > 86400) {
+        } else if (record.TTL > 86400) {
             issues.push({
-                code: 'TTL_UNUSUAL', severity: 'warning', title: 'TTL 值异常',
-                message: `${record.RR} ${record.Type} 的 TTL 为 ${record.TTL} 秒。`,
-                suggestion: '除非有明确的切换或缓存策略，建议使用 600 至 86400 秒。', recordIds: [record.RecordId],
+                code: 'TTL_TOO_HIGH', severity: 'warning', title: 'TTL 过高',
+                message: `${record.RR} ${record.Type} 的 TTL 为 ${record.TTL} 秒（超过 24 小时）。`,
+                suggestion: '除非有明确的长期缓存策略，建议使用 600 至 86400 秒。', recordIds: [record.RecordId],
             });
         }
         const type = record.Type.toUpperCase();

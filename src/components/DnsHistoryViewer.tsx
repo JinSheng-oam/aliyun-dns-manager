@@ -57,24 +57,27 @@ export function DnsHistoryViewer({ domain, isOpen, onClose }: DnsHistoryViewerPr
   if (!isOpen) return null;
 
   return (
-    <>
+    <div className="fixed inset-0 z-50 overflow-y-auto">
       {/* Backdrop */}
       <div
-        className="fixed inset-0 z-50 bg-black/25 backdrop-blur-sm animate-in fade-in duration-150"
+        className="fixed inset-0 bg-black/40 backdrop-blur-sm animate-in fade-in duration-150"
         onClick={onClose}
       />
 
-      {/* Modal */}
-      <div className="fixed inset-0 z-50 flex items-center justify-center p-4 pointer-events-none">
+      {/* Center wrapper */}
+      <div className="flex min-h-full items-center justify-center p-3 sm:p-6 text-center">
         <div
-          className="pointer-events-auto flex max-h-[90vh] w-full max-w-4xl flex-col rounded-xl border shadow-2xl animate-in zoom-in-95 duration-150 overflow-hidden"
+          role="dialog"
+          aria-modal="true"
+          aria-labelledby="history-viewer-title"
+          className="relative w-full max-w-4xl h-[85vh] max-h-[750px] min-h-[420px] flex flex-col rounded-xl border shadow-2xl animate-in zoom-in-95 duration-150 overflow-hidden text-left pointer-events-auto"
           style={{ borderColor: 'var(--border)', backgroundColor: 'var(--surface)' }}
         >
 
         {/* Header */}
-        <div className="flex items-center justify-between p-4 shrink-0" style={{ borderBottom: '1px solid var(--border)' }}>
+        <div className="flex items-center justify-between p-4 shrink-0 border-b" style={{ borderColor: 'var(--border)', backgroundColor: 'var(--surface)' }}>
           <div>
-            <h3 className="flex items-center gap-2 text-sm font-semibold" style={{ color: 'var(--fg)' }}>
+            <h3 id="history-viewer-title" className="flex items-center gap-2 text-sm font-semibold" style={{ color: 'var(--fg)' }}>
               <Clock3 className="h-4 w-4" style={{ color: 'var(--accent)' }} />
               DNS 变更历史
             </h3>
@@ -91,7 +94,7 @@ export function DnsHistoryViewer({ domain, isOpen, onClose }: DnsHistoryViewerPr
         </div>
 
         {/* Content */}
-        <div className="flex-1 overflow-auto p-4">
+        <div className="flex-1 min-h-0 overflow-y-auto overflow-x-auto p-4">
           {isLoading && logs.length === 0 ? (
             <div className="flex justify-center py-12">
               <Loader2 className="h-6 w-6 animate-spin" style={{ color: 'var(--accent)' }} />
@@ -139,6 +142,6 @@ export function DnsHistoryViewer({ domain, isOpen, onClose }: DnsHistoryViewerPr
         </div>
       </div>
     </div>
-    </>
+  </div>
   );
 }

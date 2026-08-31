@@ -60,25 +60,25 @@ export function LogsViewer({ isOpen, onClose }: LogsViewerProps) {
   if (!isOpen) return null;
 
   return (
-    <>
-      {/* Backdrop — pure overlay, no overflow */}
+    <div className="fixed inset-0 z-50 overflow-y-auto">
+      {/* Backdrop */}
       <div
-        className="fixed inset-0 z-50 bg-black/25 backdrop-blur-sm animate-in fade-in duration-150"
+        className="fixed inset-0 bg-black/40 backdrop-blur-sm animate-in fade-in duration-150"
         onClick={onClose}
       />
 
-      {/* Modal — centered, scrolled internally */}
-      <div className="fixed inset-0 z-50 flex items-center justify-center p-4 pointer-events-none">
+      {/* Center wrapper */}
+      <div className="flex min-h-full items-center justify-center p-3 sm:p-6 text-center">
         <div
           role="dialog"
           aria-modal="true"
           aria-labelledby="logs-viewer-title"
-          className="pointer-events-auto w-full max-w-4xl max-h-[90vh] flex flex-col rounded-xl border shadow-2xl animate-in zoom-in-95 duration-150 overflow-hidden"
+          className="relative w-full max-w-4xl h-[85vh] max-h-[750px] min-h-[420px] flex flex-col rounded-xl border shadow-2xl animate-in zoom-in-95 duration-150 overflow-hidden text-left pointer-events-auto"
           style={{ borderColor: 'var(--border)', backgroundColor: 'var(--surface)' }}
         >
 
         {/* Header */}
-        <div className="p-4 flex items-center justify-between shrink-0" style={{ borderBottom: '1px solid var(--border)' }}>
+        <div className="p-4 flex items-center justify-between shrink-0" style={{ borderBottom: '1px solid var(--border)', backgroundColor: 'var(--surface)' }}>
           <h3 id="logs-viewer-title" className="text-sm font-semibold flex items-center gap-2" style={{ color: 'var(--fg)' }}>
             操作日志
             <span className="text-xs font-normal rounded-full px-2 py-0.5" style={{ backgroundColor: 'var(--surface-hover)', color: 'var(--muted)' }}>
@@ -99,13 +99,13 @@ export function LogsViewer({ isOpen, onClose }: LogsViewerProps) {
         </div>
 
         {/* Filters */}
-        <div className="p-3 flex flex-col sm:flex-row gap-2 shrink-0" style={{ borderBottom: '1px solid var(--border)' }}>
+        <div className="p-3 flex flex-col sm:flex-row gap-2 shrink-0" style={{ borderBottom: '1px solid var(--border)', backgroundColor: 'var(--surface)' }}>
           <div className="relative flex-1">
             <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 pointer-events-none" style={{ color: 'var(--muted)' }} />
             <input
               type="search" value={searchTerm} onChange={(e) => setSearchTerm(e.target.value)}
               placeholder="搜索操作、IP、详情或错误"
-              className="field-control h-9 text-sm" style={{ border: '1px solid var(--border)', boxShadow: 'none', paddingLeft: '2.25rem' }}
+              className="field-control field-control-search h-9 text-sm" style={{ border: '1px solid var(--border)', boxShadow: 'none', paddingLeft: '2.25rem', paddingRight: '2rem' }}
             />
           </div>
           <Select
@@ -132,18 +132,18 @@ export function LogsViewer({ isOpen, onClose }: LogsViewerProps) {
         </div>
 
         {/* Table */}
-        <div className="flex-1 min-h-0 overflow-auto">
+        <div className="flex-1 min-h-0 overflow-y-auto overflow-x-auto">
           {isLoading && logs.length === 0 ? (
             <div className="flex justify-center py-12">
               <Loader2 className="h-6 w-6 animate-spin" style={{ color: 'var(--accent)' }} />
             </div>
           ) : (
-            <table className="w-full text-xs">
-              <thead style={{ borderBottom: '1px solid var(--border)' }}>
+            <table className="w-full text-xs border-separate border-spacing-0">
+              <thead>
                 <tr>
                   {['时间', '操作', 'IP', '详情', '状态'].map((h) => (
-                    <th key={h} className="px-4 py-2.5 font-medium text-left sticky top-0"
-                      style={{ color: 'var(--muted)', textTransform: 'uppercase', letterSpacing: '0.05em', backgroundColor: 'var(--surface)' }}>
+                    <th key={h} className="px-4 py-2.5 font-medium text-left sticky top-0 border-b z-10"
+                      style={{ color: 'var(--muted)', textTransform: 'uppercase', letterSpacing: '0.05em', backgroundColor: 'var(--surface)', borderColor: 'var(--border)' }}>
                       {h}
                     </th>
                   ))}
@@ -157,14 +157,17 @@ export function LogsViewer({ isOpen, onClose }: LogsViewerProps) {
                     </td>
                   </tr>
                 ) : (
-                  filteredLogs.map((log) => (
-                    <tr key={log.id} className="group transition-colors" style={{ borderBottom: '1px solid var(--border)' }}
+                  filteredLogs.map((log, index) => {
+                    const isLast = index === filteredLogs.length - 1;
+                    return (
+                    <tr key={log.id} className="group transition-colors"
+                      style={{ backgroundColor: 'transparent' }}
                       onMouseEnter={(e) => { e.currentTarget.style.backgroundColor = 'var(--surface-hover)'; }}
                       onMouseLeave={(e) => { e.currentTarget.style.backgroundColor = 'transparent'; }}>
-                      <td className="px-4 py-2.5 font-mono whitespace-nowrap" style={{ color: 'var(--muted)' }}>
+                      <td className="px-4 py-2.5 font-mono whitespace-nowrap" style={{ color: 'var(--muted)', borderBottom: isLast ? 'none' : '1px solid var(--border)' }}>
                         {new Date(log.timestamp).toLocaleString()}
                       </td>
-                      <td className="px-4 py-2.5 font-medium" style={{ color: 'var(--fg)' }}>
+                      <td className="px-4 py-2.5 font-medium" style={{ color: 'var(--fg)', borderBottom: isLast ? 'none' : '1px solid var(--border)' }}>
                         <div className="flex items-center gap-2">
                           <span>{log.action}</span>
                           {isHighRiskLog(log) && (
@@ -172,12 +175,12 @@ export function LogsViewer({ isOpen, onClose }: LogsViewerProps) {
                           )}
                         </div>
                       </td>
-                      <td className="px-4 py-2.5 font-mono" style={{ color: 'var(--muted)' }}>{log.ip}</td>
-                      <td className="px-4 py-2.5 max-w-xs truncate" title={log.details}>
+                      <td className="px-4 py-2.5 font-mono" style={{ color: 'var(--muted)', borderBottom: isLast ? 'none' : '1px solid var(--border)' }}>{log.ip}</td>
+                      <td className="px-4 py-2.5 max-w-xs truncate" title={log.details} style={{ borderBottom: isLast ? 'none' : '1px solid var(--border)' }}>
                         <span style={{ color: 'var(--fg)' }}>{log.details}</span>
                         {log.error && <div className="mt-0.5" style={{ color: 'var(--danger)' }}>{log.error}</div>}
                       </td>
-                      <td className="px-4 py-2.5 text-right">
+                      <td className="px-4 py-2.5 text-right" style={{ borderBottom: isLast ? 'none' : '1px solid var(--border)' }}>
                         <span className="inline-flex items-center px-2 py-0.5 rounded-full text-xs font-medium"
                           style={{
                             backgroundColor: log.status === 'success' ? 'var(--success-light)' : 'var(--danger-light)',
@@ -187,7 +190,8 @@ export function LogsViewer({ isOpen, onClose }: LogsViewerProps) {
                         </span>
                       </td>
                     </tr>
-                  ))
+                    );
+                  })
                 )}
               </tbody>
             </table>
@@ -195,6 +199,6 @@ export function LogsViewer({ isOpen, onClose }: LogsViewerProps) {
         </div>
       </div>
     </div>
-    </>
+  </div>
   );
 }

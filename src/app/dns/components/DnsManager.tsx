@@ -604,8 +604,8 @@ export function DnsManager({ initialKeys, readOnly = false }: DnsManagerProps) {
                     placeholder="搜索域名（如 example.com）..."
                     value={domainSearchTerm}
                     onChange={(e) => setDomainSearchTerm(e.target.value)}
-                    className="field-control h-8 text-xs pl-8 pr-7 w-full"
-                    style={{ backgroundColor: 'var(--surface-hover)', border: '1px solid var(--border)', boxShadow: 'none' }}
+                    className="field-control field-control-search h-8 text-xs w-full"
+                    style={{ backgroundColor: 'var(--surface-hover)', border: '1px solid var(--border)', boxShadow: 'none', paddingLeft: '2.25rem', paddingRight: '2rem' }}
                   />
                   {domainSearchTerm && (
                     <button
@@ -685,9 +685,7 @@ export function DnsManager({ initialKeys, readOnly = false }: DnsManagerProps) {
                   <button
                     key={domain.domainId}
                     onClick={() => setSelectedDomain(domain)}
-                    className="surface surface-hover p-4 rounded-xl text-left transition-all duration-150 flex flex-col justify-between h-28 focus-visible:outline-none"
-                    onFocus={(e) => { e.currentTarget.style.boxShadow = '0 0 0 2px var(--accent)'; }}
-                    onBlur={(e) => { e.currentTarget.style.boxShadow = 'var(--shadow-sm)'; }}
+                    className="surface surface-hover p-4 rounded-xl text-left flex flex-col justify-between h-28 outline-none focus:outline-none focus-visible:ring-2 focus-visible:ring-[var(--accent)] cursor-pointer"
                   >
                     <div>
                       <div className="font-semibold text-[15px]" style={{ color: 'var(--fg)' }}>
@@ -697,8 +695,9 @@ export function DnsManager({ initialKeys, readOnly = false }: DnsManagerProps) {
                         <span>{domain.versionName}</span>
                         {domainHealth[domain.domainName.toLowerCase()] && (
                           <span
-                            className="rounded-full px-2 py-0.5 text-[10px] font-semibold"
+                            className="rounded-full px-2 py-0.5 text-[10px] font-semibold cursor-help"
                             style={healthBadgeStyle(domainHealth[domain.domainName.toLowerCase()])}
+                            title={`健康状态：${{ healthy: '健康', warning: '需关注', error: '异常' }[domainHealth[domain.domainName.toLowerCase()]]}（点击进入域名后可在右上角使用“健康检查”查看诊断明细）`}
                           >
                             {{ healthy: '健康', warning: '需关注', error: '异常' }[domainHealth[domain.domainName.toLowerCase()]]}
                           </span>
@@ -723,68 +722,103 @@ export function DnsManager({ initialKeys, readOnly = false }: DnsManagerProps) {
               /* Table View */
               <div className="surface rounded-xl overflow-hidden">
                 <div className="overflow-x-auto">
-                  <table className="w-full text-sm">
-                    <thead style={{ borderBottom: '1px solid var(--border)' }}>
+                  <table className="w-full text-sm border-separate border-spacing-0">
+                    <thead>
                       <tr>
-                        <th className="px-4 py-3 text-left" style={thStyle}>域名</th>
-                        <th className="px-4 py-3 text-left" style={thStyle}>版本</th>
-                        <th className="px-4 py-3 text-left" style={thStyle}>解析记录数</th>
-                        <th className="px-4 py-3 text-left" style={thStyle}>创建时间</th>
-                        <th className="px-4 py-3 text-right" style={thStyle}>操作</th>
+                        <th className="px-4 py-3 text-left border-b" style={{ ...thStyle, borderColor: 'var(--border)' }}>域名</th>
+                        <th className="px-4 py-3 text-left border-b" style={{ ...thStyle, borderColor: 'var(--border)' }}>版本</th>
+                        <th className="px-4 py-3 text-left border-b" style={{ ...thStyle, borderColor: 'var(--border)' }}>解析记录数</th>
+                        <th className="px-4 py-3 text-left border-b" style={{ ...thStyle, borderColor: 'var(--border)' }}>创建时间</th>
+                        <th className="px-4 py-3 text-right border-b" style={{ ...thStyle, borderColor: 'var(--border)' }}>操作</th>
                       </tr>
                     </thead>
                     <tbody>
-                      {filteredDomains.map((domain) => (
-                        <tr
-                          key={domain.domainId}
-                          onClick={() => setSelectedDomain(domain)}
-                          className="group cursor-pointer transition-colors"
-                          style={{ borderBottom: '1px solid var(--border)' }}
-                          onMouseEnter={(e) => { e.currentTarget.style.backgroundColor = 'var(--surface-hover)'; }}
-                          onMouseLeave={(e) => { e.currentTarget.style.backgroundColor = 'transparent'; }}
-                        >
-                          <td className="px-4 py-3 font-semibold" style={{ color: 'var(--fg)' }}>
-                            <div className="flex items-center gap-2">
-                              <Globe className="h-4 w-4 shrink-0" style={{ color: 'var(--accent)' }} />
-                              <span>{domain.domainName}</span>
-                              {domainHealth[domain.domainName.toLowerCase()] && (
-                                <span
-                                  className="rounded-full px-2 py-0.5 text-[10px] font-semibold"
-                                  style={healthBadgeStyle(domainHealth[domain.domainName.toLowerCase()])}
-                                >
-                                  {{ healthy: '健康', warning: '需关注', error: '异常' }[domainHealth[domain.domainName.toLowerCase()]]}
-                                </span>
-                              )}
-                            </div>
-                          </td>
-                          <td className="px-4 py-3 text-xs" style={{ color: 'var(--muted)' }}>
-                            {domain.versionName}
-                          </td>
-                          <td className="px-4 py-3 text-xs">
-                            <span
-                              className="font-medium px-2 py-0.5 rounded-md"
-                              style={{ backgroundColor: 'var(--surface-hover)', color: 'var(--fg)' }}
-                            >
-                              {domain.recordCount} 条记录
-                            </span>
-                          </td>
-                          <td className="px-4 py-3 text-xs font-mono" style={{ color: 'var(--muted)' }}>
-                            {new Date(domain.createTime).toLocaleDateString()}
-                          </td>
-                          <td className="px-4 py-3 text-right">
-                            <Button
-                              variant="secondary"
-                              size="sm"
-                              onClick={(e) => {
-                                e.stopPropagation();
-                                setSelectedDomain(domain);
+                      {filteredDomains.map((domain, index) => {
+                        const isLast = index === filteredDomains.length - 1;
+                        return (
+                          <tr
+                            key={domain.domainId}
+                            onClick={() => setSelectedDomain(domain)}
+                            className="group cursor-pointer transition-colors outline-none focus:outline-none"
+                            style={{
+                              borderBottom: isLast ? 'none' : '1px solid var(--border)',
+                              backgroundColor: 'transparent',
+                            }}
+                            onMouseEnter={(e) => { e.currentTarget.style.backgroundColor = 'var(--surface-hover)'; }}
+                            onMouseLeave={(e) => { e.currentTarget.style.backgroundColor = 'transparent'; }}
+                          >
+                            <td
+                              className="px-4 py-3 font-semibold"
+                              style={{
+                                color: 'var(--fg)',
+                                borderBottom: isLast ? 'none' : '1px solid var(--border)',
                               }}
                             >
-                              管理解析 <ArrowRight className="h-3.5 w-3.5" />
-                            </Button>
-                          </td>
-                        </tr>
-                      ))}
+                              <div className="flex items-center gap-2">
+                                <Globe className="h-4 w-4 shrink-0" style={{ color: 'var(--accent)' }} />
+                                <span>{domain.domainName}</span>
+                                {domainHealth[domain.domainName.toLowerCase()] && (
+                                  <span
+                                    className="rounded-full px-2 py-0.5 text-[10px] font-semibold cursor-help"
+                                    style={healthBadgeStyle(domainHealth[domain.domainName.toLowerCase()])}
+                                    title={`健康状态：${{ healthy: '健康', warning: '需关注', error: '异常' }[domainHealth[domain.domainName.toLowerCase()]]}（点击进入域名后可在右上角使用“健康检查”查看诊断明细）`}
+                                  >
+                                    {{ healthy: '健康', warning: '需关注', error: '异常' }[domainHealth[domain.domainName.toLowerCase()]]}
+                                  </span>
+                                )}
+                              </div>
+                            </td>
+                            <td
+                              className="px-4 py-3 text-xs"
+                              style={{
+                                color: 'var(--muted)',
+                                borderBottom: isLast ? 'none' : '1px solid var(--border)',
+                              }}
+                            >
+                              {domain.versionName}
+                            </td>
+                            <td
+                              className="px-4 py-3 text-xs"
+                              style={{
+                                borderBottom: isLast ? 'none' : '1px solid var(--border)',
+                              }}
+                            >
+                              <span
+                                className="font-medium px-2 py-0.5 rounded-md"
+                                style={{ backgroundColor: 'var(--surface-hover)', color: 'var(--fg)' }}
+                              >
+                                {domain.recordCount} 条记录
+                              </span>
+                            </td>
+                            <td
+                              className="px-4 py-3 text-xs font-mono"
+                              style={{
+                                color: 'var(--muted)',
+                                borderBottom: isLast ? 'none' : '1px solid var(--border)',
+                              }}
+                            >
+                              {new Date(domain.createTime).toLocaleDateString()}
+                            </td>
+                            <td
+                              className="px-4 py-3 text-right"
+                              style={{
+                                borderBottom: isLast ? 'none' : '1px solid var(--border)',
+                              }}
+                            >
+                              <Button
+                                variant="secondary"
+                                size="sm"
+                                onClick={(e) => {
+                                  e.stopPropagation();
+                                  setSelectedDomain(domain);
+                                }}
+                              >
+                                管理解析 <ArrowRight className="h-3.5 w-3.5" />
+                              </Button>
+                            </td>
+                          </tr>
+                        );
+                      })}
                     </tbody>
                   </table>
                 </div>
@@ -1125,10 +1159,10 @@ export function DnsManager({ initialKeys, readOnly = false }: DnsManagerProps) {
             {/* Records table */}
             <div className="surface rounded-xl overflow-hidden">
               <div className="overflow-x-auto">
-                <table className="w-full text-sm">
-                  <thead style={{ borderBottom: '1px solid var(--border)' }}>
+                <table className="w-full text-sm border-separate border-spacing-0">
+                  <thead>
                     <tr>
-                      <th className="px-4 py-3 w-10 cursor-pointer" onClick={handleSelectAll}>
+                      <th className="px-4 py-3 w-10 cursor-pointer border-b" style={{ ...thStyle, borderColor: 'var(--border)' }} onClick={handleSelectAll}>
                         <input
                           type="checkbox" className="checkbox-control"
                           checked={selectedRecordIds.size === filteredAndSortedRecords.length && filteredAndSortedRecords.length > 0}
@@ -1136,7 +1170,7 @@ export function DnsManager({ initialKeys, readOnly = false }: DnsManagerProps) {
                         />
                       </th>
                       {(['RR', 'Type', 'Value', 'TTL', 'Status'] as SortKey[]).map((key) => (
-                        <th key={key} className="px-4 py-3 cursor-pointer group" style={thStyle} onClick={() => requestSort(key)}>
+                        <th key={key} className="px-4 py-3 cursor-pointer group border-b" style={{ ...thStyle, borderColor: 'var(--border)' }} onClick={() => requestSort(key)}>
                           <div className="flex items-center gap-1">
                             {{ RR: '主机记录', Type: '类型', Value: '记录值', TTL: 'TTL', Status: '状态' }[key]}
                             <span className="opacity-0 group-hover:opacity-100 transition-opacity">
@@ -1147,16 +1181,18 @@ export function DnsManager({ initialKeys, readOnly = false }: DnsManagerProps) {
                           </div>
                         </th>
                       ))}
-                      <th className="px-4 py-3 text-right" style={thStyle}>操作</th>
+                      <th className="px-4 py-3 text-right border-b" style={{ ...thStyle, borderColor: 'var(--border)' }}>操作</th>
                     </tr>
                   </thead>
                   <tbody>
-                    {paginatedRecords.map((record) => (
+                    {paginatedRecords.map((record, index) => {
+                      const isLast = index === paginatedRecords.length - 1;
+                      return (
                       <tr
                         key={record.RecordId}
-                        className="group transition-colors"
+                        className="group transition-colors outline-none focus:outline-none"
                         style={{
-                          borderBottom: '1px solid var(--border)',
+                          borderBottom: isLast ? 'none' : '1px solid var(--border)',
                           opacity: isRecordEnabled(record.Status) ? 1 : 0.5,
                           backgroundColor: selectedRecordIds.has(record.RecordId) ? 'var(--accent-light)' : 'transparent',
                         }}
@@ -1171,7 +1207,11 @@ export function DnsManager({ initialKeys, readOnly = false }: DnsManagerProps) {
                           }
                         }}
                       >
-                        <td className="px-4 py-3 cursor-pointer" onClick={() => handleToggleSelect(record.RecordId)}>
+                        <td
+                          className="px-4 py-3 cursor-pointer"
+                          onClick={() => handleToggleSelect(record.RecordId)}
+                          style={{ borderBottom: isLast ? 'none' : '1px solid var(--border)' }}
+                        >
                           <input
                             type="checkbox" className="checkbox-control"
                             checked={selectedRecordIds.has(record.RecordId)}
@@ -1179,7 +1219,13 @@ export function DnsManager({ initialKeys, readOnly = false }: DnsManagerProps) {
                             onClick={(e) => e.stopPropagation()}
                           />
                         </td>
-                        <td className="px-4 py-3 font-medium group/cell" style={{ color: 'var(--fg)' }}>
+                        <td
+                          className="px-4 py-3 font-medium group/cell"
+                          style={{
+                            color: 'var(--fg)',
+                            borderBottom: isLast ? 'none' : '1px solid var(--border)',
+                          }}
+                        >
                           <div className="flex items-center gap-1.5 max-w-[140px]" title={record.RR}>
                             <span className="truncate">{record.RR}</span>
                             <button
@@ -1192,12 +1238,21 @@ export function DnsManager({ initialKeys, readOnly = false }: DnsManagerProps) {
                             </button>
                           </div>
                         </td>
-                        <td className="px-4 py-3">
+                        <td
+                          className="px-4 py-3"
+                          style={{ borderBottom: isLast ? 'none' : '1px solid var(--border)' }}
+                        >
                           <span className="inline-block px-2 py-0.5 rounded text-xs font-semibold" style={typeBadgeStyle(record.Type)}>
                             {record.Type}
                           </span>
                         </td>
-                        <td className="px-4 py-3 font-mono text-xs group/cell" style={{ color: 'var(--muted)' }}>
+                        <td
+                          className="px-4 py-3 font-mono text-xs group/cell"
+                          style={{
+                            color: 'var(--muted)',
+                            borderBottom: isLast ? 'none' : '1px solid var(--border)',
+                          }}
+                        >
                           <div className="flex items-center gap-1.5 max-w-[180px]" title={record.Value}>
                             <span className="truncate">{record.Value}</span>
                             <button
@@ -1210,8 +1265,19 @@ export function DnsManager({ initialKeys, readOnly = false }: DnsManagerProps) {
                             </button>
                           </div>
                         </td>
-                        <td className="px-4 py-3 font-mono text-xs" style={{ color: 'var(--muted)' }}>{record.TTL}</td>
-                        <td className="px-4 py-3">
+                        <td
+                          className="px-4 py-3 font-mono text-xs"
+                          style={{
+                            color: 'var(--muted)',
+                            borderBottom: isLast ? 'none' : '1px solid var(--border)',
+                          }}
+                        >
+                          {record.TTL}
+                        </td>
+                        <td
+                          className="px-4 py-3"
+                          style={{ borderBottom: isLast ? 'none' : '1px solid var(--border)' }}
+                        >
                           <span
                             className="inline-flex items-center gap-1.5 px-2 py-0.5 rounded-full text-xs font-medium"
                             style={{
@@ -1226,7 +1292,10 @@ export function DnsManager({ initialKeys, readOnly = false }: DnsManagerProps) {
                             {isRecordEnabled(record.Status) ? '正常' : '已暂停'}
                           </span>
                         </td>
-                        <td className="px-4 py-3 text-right whitespace-nowrap">
+                        <td
+                          className="px-4 py-3 text-right whitespace-nowrap"
+                          style={{ borderBottom: isLast ? 'none' : '1px solid var(--border)' }}
+                        >
                           <div className="flex items-center justify-end gap-0.5">
                             <button
                               onClick={() => handleToggleStatus(record)}
@@ -1282,7 +1351,8 @@ export function DnsManager({ initialKeys, readOnly = false }: DnsManagerProps) {
                           </div>
                         </td>
                       </tr>
-                    ))}
+                      );
+                    })}
                     {filteredAndSortedRecords.length === 0 && (
                       <tr>
                         <td colSpan={7} className="px-4 py-12 text-center text-sm" style={{ color: 'var(--muted)' }}>
