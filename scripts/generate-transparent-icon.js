@@ -28,7 +28,7 @@ const path = require('path');
     const imgData = ctx.getImageData(0, 0, canvas.width, canvas.height);
     const data = imgData.data;
 
-    // Convert pure white and off-white background to transparent with defringing
+    // 1. Remove white/off-white background with defringing
     for (let i = 0; i < data.length; i += 4) {
       const r = data[i];
       const g = data[i + 1];
@@ -36,33 +36,42 @@ const path = require('path');
       
       const minVal = Math.min(r, g, b);
       const maxVal = Math.max(r, g, b);
+      const diff = maxVal - minVal;
       
-      // Calculate how close to pure white this pixel is
-      if (minVal > 215 && (maxVal - minVal) < 25) {
-        if (minVal >= 250) {
-          data[i + 3] = 0; // Fully transparent
+      // If near grayscale / white
+      if (minVal > 200 && diff < 30) {
+        if (minVal >= 246) {
+          data[i + 3] = 0; // Completely transparent
         } else {
           // Smooth alpha transition
-          const t = (minVal - 215) / (250 - 215);
+          const t = (minVal - 200) / (246 - 200);
           const alpha = 1 - t;
           data[i + 3] = Math.round(alpha * 255);
           
-          // Defringe: un-blend white background
-          data[i] = Math.max(0, Math.min(255, Math.round((r - 255 * (1 - alpha)) / alpha)));
-          data[i + 1] = Math.max(0, Math.min(255, Math.round((g - 255 * (1 - alpha)) / alpha)));
-          data[i + 2] = Math.max(0, Math.min(255, Math.round((b - 255 * (1 - alpha)) / alpha)));
+          // Defringe: un-blend white
+          const safeAlpha = Math.max(alpha, 0.05);
+          data[i] = Math.max(0, Math.min(255, Math.round((r - 255 * (1 - safeAlpha)) / safeAlpha)));
+          data[i + 1] = Math.max(0, Math.min(255, Math.round((g - 255 * (1 - safeAlpha)) / safeAlpha)));
+          data[i + 2] = Math.max(0, Math.min(255, Math.round((b - 255 * (1 - safeAlpha)) / safeAlpha)));
         }
       }
     }
 
     ctx.putImageData(imgData, 0, 0);
 
-    // Find bounding box to trim excess transparent borders
+    // 2. Find tight bounding box of real colored pixels
     let minX = canvas.width, minY = canvas.height, maxX = 0, maxY = 0;
     for (let y = 0; y < canvas.height; y++) {
       for (let x = 0; x < canvas.width; x++) {
-        const a = data[(y * canvas.width + x) * 4 + 3];
-        if (a > 10) {
+        const i = (y * canvas.width + x) * 4;
+        const a = data[i + 3];
+        const r = data[i], g = data[i + 1], b = data[i + 2];
+        const maxVal = Math.max(r, g, b);
+        const minVal = Math.min(r, g, b);
+        const sat = maxVal > 0 ? (maxVal - minVal) / maxVal : 0;
+
+        // Consider substantial colored emblem pixels
+        if (a > 30 && (sat > 0.06 || minVal < 220)) {
           if (x < minX) minX = x;
           if (x > maxX) maxX = x;
           if (y < minY) minY = y;
@@ -71,31 +80,48 @@ const path = require('path');
       }
     }
 
-    // Add 5% padding around content
-    const w = maxX - minX;
-    const h = maxY - minY;
-    const size = Math.max(w, h);
-    const padding = Math.round(size * 0.06);
-    const targetSize = size + padding * 2;
+    const emblemW = maxX - minX;
+    const emblemH = maxY - minY;
+    const emblemCenterX = (minX + maxX) / 2;
+    const emblemCenterY = (minY + maxY) / 2;
+
+    // 3. Render onto 512x512 canvas with perfect center alignment and 8% padding
+    const outSize = 512;
+    const padding = 36;
+    const availableSize = outSize - padding * 2;
+    const scale = Math.min(availableSize / emblemW, availableSize / emblemH);
+
+    const drawW = emblemW * scale;
+    const drawH = emblemH * scale;
+    const drawX = (outSize - drawW) / 2;
+    const drawY = (outSize - drawH) / 2;
 
     const outCanvas = document.createElement('canvas');
-    outCanvas.width = targetSize;
-    outCanvas.height = targetSize;
+    outCanvas.width = outSize;
+    outCanvas.height = outSize;
     const outCtx = outCanvas.getContext('2d');
+    outCtx.imageSmoothingEnabled = true;
+    outCtx.imageSmoothingQuality = 'high';
 
-    const destX = padding + (size - w) / 2;
-    const destY = padding + (size - h) / 2;
+    outCtx.drawImage(
+      canvas,
+      minX, minY, emblemW, emblemH,
+      drawX, drawY, drawW, drawH
+    );
 
-    outCtx.drawImage(canvas, minX, minY, w, h, destX, destY, w, h);
-
-    return outCanvas.toDataURL('image/png').split(',')[1];
+    return {
+      base64: outCanvas.toDataURL('image/png').split(',')[1],
+      bounds: { minX, maxX, minY, maxY, emblemW, emblemH, emblemCenterX, emblemCenterY }
+    };
   }, imgDataUrl);
 
   await browser.close();
 
-  const outBuffer = Buffer.from(pngBase64, 'base64');
+  console.log('Emblem Bounds & Centering:', pngBase64.bounds);
+
+  const outBuffer = Buffer.from(pngBase64.base64, 'base64');
   
-  // Write to src/app/icon.png, public/icon.png, public/logo.png
+  // Write to src/app/icon.png, public/icon.png, public/logo.png, docs/screenshots/logo-transparent.png
   const targets = [
     path.join(process.cwd(), 'src', 'app', 'icon.png'),
     path.join(process.cwd(), 'public', 'icon.png'),
@@ -106,6 +132,6 @@ const path = require('path');
   for (const t of targets) {
     fs.mkdirSync(path.dirname(t), { recursive: true });
     fs.writeFileSync(t, outBuffer);
-    console.log('Saved transparent icon to:', t);
+    console.log('Saved centered transparent icon to:', t);
   }
 })();
