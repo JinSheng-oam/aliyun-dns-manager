@@ -3,7 +3,7 @@ const fs = require('fs');
 const path = require('path');
 
 (async () => {
-  const inputJpg = 'C:/Users/trave/.gemini/antigravity/brain/62de713a-a879-4a5d-b8f6-69b668b5127f/aliyun_dns_logo_1788159914738.jpg';
+  const inputJpg = 'C:/Users/trave/.gemini/antigravity/brain/62de713a-a879-4a5d-b8f6-69b668b5127f/aliyun_dns_icon_symmetric_1788160745266.jpg';
   const imgDataUrl = `data:image/jpeg;base64,${fs.readFileSync(inputJpg).toString('base64')}`;
 
   const browser = await chromium.launch();
@@ -39,12 +39,12 @@ const path = require('path');
       const diff = maxVal - minVal;
       
       // If near grayscale / white
-      if (minVal > 200 && diff < 30) {
-        if (minVal >= 246) {
+      if (minVal > 195 && diff < 35) {
+        if (minVal >= 242) {
           data[i + 3] = 0; // Completely transparent
         } else {
           // Smooth alpha transition
-          const t = (minVal - 200) / (246 - 200);
+          const t = (minVal - 195) / (242 - 195);
           const alpha = 1 - t;
           data[i + 3] = Math.round(alpha * 255);
           
@@ -85,9 +85,9 @@ const path = require('path');
     const emblemCenterX = (minX + maxX) / 2;
     const emblemCenterY = (minY + maxY) / 2;
 
-    // 3. Render onto 512x512 canvas with perfect center alignment and 8% padding
+    // 3. Render onto 512x512 canvas with perfect center alignment and 6% padding
     const outSize = 512;
-    const padding = 36;
+    const padding = 28;
     const availableSize = outSize - padding * 2;
     const scale = Math.min(availableSize / emblemW, availableSize / emblemH);
 
@@ -117,7 +117,7 @@ const path = require('path');
 
   await browser.close();
 
-  console.log('Emblem Bounds & Centering:', pngBase64.bounds);
+  console.log('Symmetric Emblem Bounds & Centering:', pngBase64.bounds);
 
   const outBuffer = Buffer.from(pngBase64.base64, 'base64');
   
@@ -132,6 +132,6 @@ const path = require('path');
   for (const t of targets) {
     fs.mkdirSync(path.dirname(t), { recursive: true });
     fs.writeFileSync(t, outBuffer);
-    console.log('Saved centered transparent icon to:', t);
+    console.log('Saved symmetric transparent icon to:', t);
   }
 })();
