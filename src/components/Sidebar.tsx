@@ -202,8 +202,8 @@ export function Sidebar() {
 
       {/* Desktop sidebar — fixed, always visible */}
       <aside
-        className="hidden lg:flex fixed left-0 top-0 z-40 h-screen w-[240px] flex-col"
-        style={{ borderRight: '1px solid var(--border)' }}
+        className="hidden lg:flex fixed left-0 top-0 bottom-0 z-40 w-[240px] flex-col"
+        style={{ borderRight: '1px solid var(--border)', backgroundColor: 'var(--surface)' }}
       >
         {sidebarContent}
       </aside>

@@ -18,7 +18,7 @@ export default function RootLayout({
   children: React.ReactNode;
 }>) {
   return (
-    <html lang="zh-CN" suppressHydrationWarning>
+    <html lang="zh-CN" suppressHydrationWarning style={{ backgroundColor: 'var(--bg)', minHeight: '100%' }}>
       <head>
         <script
           dangerouslySetInnerHTML={{
